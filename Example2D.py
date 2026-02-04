@@ -81,12 +81,15 @@ plt.show()
 # Calculate ellipsoid of Px after 2 step
 
 data_step2 = []
+step2 = []
 for p in step.T:
+    step2.append(P([[p[0]], [p[1]]], A, v).T.ravel())
     if in_ellipsoid(step1_A, step1_b, P([[p[0]], [p[1]]], A, v).T.ravel()):
         data_step2.append(p)
 
 opt, step2_A, step2_b = p_ball(data_step2, 2)
 step2_b = step2_b.flatten()
+step2 = np.array(step2).T
 
 fig, ax = plt.subplots()
 
@@ -113,12 +116,15 @@ plt.show()
 # Calculate ellipsoid of Px after 3 step
 
 data_step3 = []
-for p in step.T:
+step3 = []
+for p in step2.T:
+    step3.append(P([[p[0]], [p[1]]], A, v).T.ravel())
     if in_ellipsoid(step2_A, step2_b, P([[p[0]], [p[1]]], A, v).T.ravel()):
         data_step3.append(p)
 
 opt, step3_A, step3_b = p_ball(data_step3, 2)
 step3_b = step3_b.flatten()
+step3 = np.array(step3).T
 
 fig, ax = plt.subplots()
 
