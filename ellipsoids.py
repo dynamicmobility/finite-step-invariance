@@ -4,15 +4,15 @@ from scipy.special import gamma
 from scipy.optimize import minimize, NonlinearConstraint
 from numpy.linalg import det, inv
 
-# Defines ellipsoid as (x-c)T P (x-c) <= 1
+# Defines ellipsoid as (x-b)T A (x-b) <= 1
 class Ellipsoid:
     def __init__(self, n = 2):
         self.A = np.eye(n)
         self.b = np.zeros((n, 1))
-        self.L = np.linalg.cholesky((self.A + self.A.T)/2)
+        self.L = np.linalg.cholesky((self.A + self.A.T)/2) # TODO: Should I be storing L like this...
 
     # Given a dataset of xs and norm degree, fit ellipse to dataset
-    def fit_p_ball(self, xs, normp):
+    def fit_p_ball(self, xs, normp, verbose=False):
         xs = np.array(xs).T
         n = np.shape(xs)[0]
         m = np.shape(xs)[1]
@@ -41,14 +41,15 @@ class Ellipsoid:
         problem = cp.Problem(objective, constraints)
         problem.solve(solver=cp.SCS)
 
-        print("Optimal value :", problem.value)
-        print("A* =", A.value)
-        print("b* =", b.value)
-        print("volume proxy:", np.log(np.linalg.det(A.value)))
-        if problem.status not in ["optimal", "optimal_inaccurate"]:
-            print("Optimization failed with status:", problem.status)
-        else:
-            print("Optimization succeeded.")
+        if(verbose):
+            print("Optimal value :", problem.value)
+            print("A* =", A.value)
+            print("b* =", b.value)
+            print("volume proxy:", np.log(np.linalg.det(A.value)))
+            if problem.status not in ["optimal", "optimal_inaccurate"]:
+                print("Optimization failed with status:", problem.status)
+            else:
+                print("Optimization succeeded.")
         self.A = A.value
         self.b = b.value
         self.L = np.linalg.cholesky((self.A + self.A.T)/2)
@@ -56,7 +57,7 @@ class Ellipsoid:
 
     # Checks if a point p is contained in this ellipse
     def contains_point(self, p):
-        return np.all((p-self.b).T@self.A@(p-self.b) <= 1)
+        return np.diag((p-self.b).T@self.A@(p-self.b) <= 1)
     
     def get_lb_cb(self, ell0):
         L0 = ell0.L
@@ -69,14 +70,11 @@ class Ellipsoid:
 
     def contains_ellipsoid(self, elli1):
         """
-        Python equivalent of:
-
-            function Base.in(elli1::Ellipsoid, self::Ellipsoid)
-        Checks if ellipsoid 1 is in ellipsoid 2
+        Python implementation of: https://arxiv.org/pdf/2211.06237
+        Checks if ellipsoid 1 is in self
         Assumptions:
-        - elli1.P, self.P are symmetric positive semidefinite numpy arrays
-        - elli1.c, self.c are numpy vectors
-        - `elli1.c in self` is implemented via elli2.__contains__(point)
+        - elli1.A, self.A are symmetric positive semidefinite numpy arrays
+        - elli1.b, self.b are numpy vectors
         """
 
         # Pre-Tests
@@ -119,39 +117,24 @@ class Ellipsoid:
             if alpha == 1.0: # TODO: Check geometric meaning of alpha
                 return polPos(1.0) <= 0
             
-            # if alpha > 1.0 - np.linalg.norm(ct) ** 2:
-            #     return False
+            if alpha > 1.0 - np.linalg.norm(ct) ** 2:
+                return False
             
             objective = lambda beta: -ell_f(beta, lb, ct)
 
             lower = alpha+1e-10
-            upper =  100
+            upper =  1.0 - np.linalg.norm(ct) ** 2
             
             res = minimize(objective, x0 = (lower+upper/2), bounds=[(lower, upper)])
             f_beta = -res.x
 
             return f_beta[0] > -1
 
-
-
-        
-    
-    # def contains_ellipsoid(self, E):
-    #     if not self.pre_test(E):
-    #         return False
-    #     L0 = np.linalg.cholesky(self.A) # 
-    #     cbar = L0.T@(E.b - self.b)
-    #     L0inv = np.linalg.inv(L0)
-    #     Pbar = L0inv@E.A@L0inv.T
-    #     lb, V = np.linalg.eig(Pbar)
-    #     ct = V.T@
-
-    #     polpos = lambda beta: -(1-beta + np.sum((beta*lb/(1 - beta*lb))*(ct**2)))
-    #     dpolPos(β) = 1 - sum((lb./(1 .- β*lb).^2).*(ct.^2))
-    #     ddpolPos(β) = 2*sum((lb.^2 ./(1 .- β*lb).^3).*(ct.^2))
-
-
-    #     pass
+    # Divides A by scale_factor
+    # Which is equivalent to multiplying RHS of inequality (x-b)T A (x-b) <= 1 by scale_factor
+    def scale(self, scale_factor):
+        self.A /= scale_factor
+        self.L = np.linalg.cholesky((self.A + self.A.T)/2)
     
     def volume(self):
         Q = self.A.T @ self.A
@@ -237,9 +220,17 @@ if __name__ == "__main__":
     plot_ellipse(E2.A, E2.b.flatten(), 1, ax, color='green')
     plot_ellipse(E3.A, E3.b.flatten(), 1, ax, color='red')
 
-    # Does the orange contain the blue?
-    print("Contains E1? ", E0.contains_ellipsoid(E1))
-    print("Contains E2? ", E0.contains_ellipsoid(E2))
-    print("Contains E3? ", E0.contains_ellipsoid(E3))
+    # Does the orange contain the
+    print("Contains E1? ", E0.contains_ellipsoid(E1)) # blue
+    print("Contains E2? ", E0.contains_ellipsoid(E2)) # green
+    print("Contains E3? ", E0.contains_ellipsoid(E3)) # red
+
+    pts = np.random.uniform(-3, 1, (2,10))
+
+    ax.scatter(pts[0, :], pts[1, :])
+
+    print(E0.contains_point(pts))
+
+    print(E0.contains_point(np.array([[0, 0]]).T))
 
     plt.show()

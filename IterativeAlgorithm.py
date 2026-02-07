@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.linalg import sqrtm
 from matplotlib import pyplot as plt
-from ellipsoids import p_ball, project_ellipsoid_to_2d, plot_ellipse, in_ellipsoid, Ellipsoid
-
+from ellipsoids import plot_ellipse, Ellipsoid
+import pdb
 
 # This is the A-norm with offset v 
 def h(x, A, v):
@@ -15,16 +15,28 @@ def P(x, A, v):
 # Generate the dataset
 N = 1000
 A = np.array([[2, 0], [0, 1]])
-v = np.array([[1], [0]])
+v = np.array([[0], [0]])
 
 # Randomly sample points uniformly from some rectangular interval
-I0 = np.random.uniform(-2, 2, size=(2, N))
+I0 = np.random.uniform(-1, 1, size=(2, N))
 
 
-def sample_on(e: Ellipsoid):
-    A_loc = e.A
-    b_loc = e.b
-    # TODO: Copy from immrax
+def sample_from(e: Ellipsoid, N_pts: int):
+    # Sample Normal Distribution 
+    # TODO: pull dimension of ellipsoid
+    pts = np.random.standard_normal((2, N_pts))
+    r = np.random.uniform(0, 1, size=(N,)) ** (1/2) # The denominator of the power is also the dimension
+    pts = r*pts/np.linalg.vector_norm(pts, axis=0)
+    return np.linalg.inv(sqrtm(e.A))@pts + e.b
+    
+
+def reject_and_resample(Ei: Ellipsoid, I, Pxi, rescale=0.9):
+    N = Pxi.shape[1]
+    in_pts = I[:, Ei.contains_point(Pxi)]
+    Ein = Ellipsoid(2)
+    Ein.fit_p_ball(in_pts.T, 2)
+    Ein.scale(rescale) # Enforce contraction rate
+    return sample_from(Ein, N)
 
 
 # Initialize set I0 and corresponding over-approximating ellipse
@@ -33,22 +45,58 @@ E0 = Ellipsoid(2)
 # opt, init_A, init_b = p_ball(x.T, 2)
 # init_b = init_b.flatten()
 
+print(I0.shape)
+
 E0.fit_p_ball(I0.T, 2)
 
 Ii = I0
 Ei = E0
 
+
+# Test sample_from
+# fig, ax = plt.subplots()
+# sample_pts = sample_from(E0, N)
+# ax.scatter(sample_pts[0, :], sample_pts[1, :])
+# plt.show()
+
+# Test reject_and_resample
+fig, ax = plt.subplots()
+Pxi = P(Ii, A, v)
+I_resample = reject_and_resample(E0, Ii, Pxi, rescale=1)
+Px_resample = P(I_resample, A, v)
+ax.scatter(Ii[0, :], Ii[1, :], c='black', marker='o')
+ax.scatter(Pxi[0, :], Pxi[1, :], c='black', marker='x')
+ax.scatter(I_resample[0, :], I_resample[1, :], c='green', marker='o')
+ax.scatter(Px_resample[0, :], Px_resample[1, :], c='green', marker='x')
+plot_ellipse(A, v.flatten(), 1, ax, color = 'red')
+plot_ellipse(E0.A, E0.b.flatten(), 1, ax, color = 'green')
+plt.show()
+
+
+plot_ellipse(A, v.flatten(), 1, ax, color='black')
+plt.show()
+
 # Loop:
-for i in range(10):
-    Pxi = P(Ii)
-# Compute PXi = P(Ii)
-# If E(PXi) within E(Ii)
-# return
-# Else
-# Ii+1 = reject(I)
+# for i in range(10):
+#     fig, ax = plt.subplots()
+#     # Compute PXi = P(Ii)
+#     Pxi = P(Ii, A, v)
+#     # If E(PXi) within E(Ii)
+#     Ei = Ellipsoid(2)
+#     Ei.fit_p_ball(Ii.T, 2)
 
+#     Epxi = Ellipsoid(2)
+#     Epxi.fit_p_ball(Pxi.T, 2)
+#     ax.scatter(Ii[0, :], Ii[1, :], c='black', marker='o')
+#     ax.scatter(Pxi[0, :], Pxi[1, :], c='black', marker='x')
+#     plot_ellipse(Ei.A, Ei.b.flatten(), 1, ax, color = 'green')
+#     plot_ellipse(Epxi.A, Epxi.b.flatten(), 1, ax, color = 'blue')
+#     if(Ei.contains_ellipsoid(Epxi)):
+#         print("Success!")
+#         break
+#     else:
+#         Ii = reject_and_resample(Ei, Ii, Pxi)
+#     ax.scatter(Ii[0, :], Ii[1, :], c='green', marker='o')
+#     plot_ellipse(A, v.flatten(), 1, ax, color = 'red')
+#     plt.show()
 
-# Reject(I):
-# Px = P(I)
-# Px* = find({Px in E(I)})
-# return sampleFrom(E(Px*))
