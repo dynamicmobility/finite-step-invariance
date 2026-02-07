@@ -14,11 +14,11 @@ def P(x, A, v):
 
 # Generate the dataset
 N = 1000
-A = np.array([[2, 0], [0, 1]])
+A = np.array([[1, 0], [0, 1]])
 v = np.array([[0], [0]])
 
 # Randomly sample points uniformly from some rectangular interval
-I0 = np.random.uniform(-1, 1, size=(2, N))
+I0 = np.random.uniform(-2, 2, size=(2, N))
 
 
 def sample_from(e: Ellipsoid, N_pts: int):
@@ -36,7 +36,7 @@ def reject_and_resample(Ei: Ellipsoid, I, Pxi, rescale=0.9):
     Ein = Ellipsoid(2)
     Ein.fit_p_ball(in_pts.T, 2)
     Ein.scale(rescale) # Enforce contraction rate
-    return sample_from(Ein, N)
+    return sample_from(Ein, N), Ein, in_pts
 
 
 # Initialize set I0 and corresponding over-approximating ellipse
@@ -60,43 +60,50 @@ Ei = E0
 # plt.show()
 
 # Test reject_and_resample
-fig, ax = plt.subplots()
-Pxi = P(Ii, A, v)
-I_resample = reject_and_resample(E0, Ii, Pxi, rescale=1)
-Px_resample = P(I_resample, A, v)
-ax.scatter(Ii[0, :], Ii[1, :], c='black', marker='o')
-ax.scatter(Pxi[0, :], Pxi[1, :], c='black', marker='x')
-ax.scatter(I_resample[0, :], I_resample[1, :], c='green', marker='o')
-ax.scatter(Px_resample[0, :], Px_resample[1, :], c='green', marker='x')
-plot_ellipse(A, v.flatten(), 1, ax, color = 'red')
-plot_ellipse(E0.A, E0.b.flatten(), 1, ax, color = 'green')
-plt.show()
+# fig, ax = plt.subplots()
+# Pxi = P(Ii, A, v)
+
+# # P(in_pts) should lie completely within E0
+# # We want E_resample to tightly wrap in_pts
+# # P(I_resample) should also lie within E0
+# I_resample, E_resample, in_pts = reject_and_resample(E0, Ii, Pxi, rescale=1)
+
+# Pin_points = P(in_pts, A, v)
 
 
-plot_ellipse(A, v.flatten(), 1, ax, color='black')
-plt.show()
+# Px_resample = P(I_resample, A, v)
+# ax.scatter(Ii[0, :], Ii[1, :], c='black', marker='o')
+# ax.scatter(Pxi[0, :], Pxi[1, :], c='black', marker='x')
+# ax.scatter(I_resample[0, :], I_resample[1, :], c='green', marker='o')
+# ax.scatter(Px_resample[0, :], Px_resample[1, :], c='green', marker='x')
+# ax.scatter(in_pts[0, :], in_pts[1, :], c='blue', marker='o')
+# plot_ellipse(A, v.flatten(), 1, ax, color = 'red')
+# plot_ellipse(E0.A, E0.b.flatten(), 1, ax, color = 'blue')
+# plot_ellipse(E_resample.A, E_resample.b.flatten(), 1, ax, color = 'green')
+# plt.show()
+
 
 # Loop:
-# for i in range(10):
-#     fig, ax = plt.subplots()
-#     # Compute PXi = P(Ii)
-#     Pxi = P(Ii, A, v)
-#     # If E(PXi) within E(Ii)
-#     Ei = Ellipsoid(2)
-#     Ei.fit_p_ball(Ii.T, 2)
+for i in range(10):
+    fig, ax = plt.subplots()
+    # Compute PXi = P(Ii)
+    Pxi = P(Ii, A, v)
+    # If E(PXi) within E(Ii)
+    Ei = Ellipsoid(2)
+    Ei.fit_p_ball(Ii.T, 2)
 
-#     Epxi = Ellipsoid(2)
-#     Epxi.fit_p_ball(Pxi.T, 2)
-#     ax.scatter(Ii[0, :], Ii[1, :], c='black', marker='o')
-#     ax.scatter(Pxi[0, :], Pxi[1, :], c='black', marker='x')
-#     plot_ellipse(Ei.A, Ei.b.flatten(), 1, ax, color = 'green')
-#     plot_ellipse(Epxi.A, Epxi.b.flatten(), 1, ax, color = 'blue')
-#     if(Ei.contains_ellipsoid(Epxi)):
-#         print("Success!")
-#         break
-#     else:
-#         Ii = reject_and_resample(Ei, Ii, Pxi)
-#     ax.scatter(Ii[0, :], Ii[1, :], c='green', marker='o')
-#     plot_ellipse(A, v.flatten(), 1, ax, color = 'red')
-#     plt.show()
+    Epxi = Ellipsoid(2)
+    Epxi.fit_p_ball(Pxi.T, 2)
+    ax.scatter(Ii[0, :], Ii[1, :], c='black', marker='o')
+    ax.scatter(Pxi[0, :], Pxi[1, :], c='black', marker='x')
+    plot_ellipse(Ei.A, Ei.b.flatten(), 1, ax, color = 'green')
+    plot_ellipse(Epxi.A, Epxi.b.flatten(), 1, ax, color = 'blue')
+    if(Ei.contains_ellipsoid(Epxi)):
+        print("Success!")
+        break
+    else:
+        Ii, _, _ = reject_and_resample(Ei, Ii, Pxi, rescale=1)
+    ax.scatter(Ii[0, :], Ii[1, :], c='green', marker='o')
+    plot_ellipse(A, v.flatten(), 1, ax, color = 'red')
+    plt.show()
 
