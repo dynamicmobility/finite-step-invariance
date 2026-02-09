@@ -7,11 +7,12 @@ from numpy.linalg import det, inv
 # Defines ellipsoid as (x-b)T A (x-b) <= 1
 class Ellipsoid:
     def __init__(self, n = 2):
-        self.A = np.eye(n)
-        self.b = np.zeros((n, 1))
-        self.L = np.linalg.cholesky((self.A + self.A.T)/2) # TODO: Should I be storing L like this...
+        self.Q = np.eye(n)
+        self.c = np.zeros((n, 1))
+        self.L = np.linalg.cholesky((self.Q + self.Q.T)/2) # TODO: Should I be storing L like this...
 
     # Given a dataset of xs and norm degree, fit ellipse to dataset
+    # Ellipse in form ||Ax - b|| < 1
     def fit_p_ball(self, xs, normp, verbose=False):
         xs = np.array(xs).T
         n = np.shape(xs)[0]
@@ -50,22 +51,41 @@ class Ellipsoid:
                 print("Optimization failed with status:", problem.status)
             else:
                 print("Optimization succeeded.")
-        self.A = A.value
-        self.b = b.value
-        self.L = np.linalg.cholesky((self.A + self.A.T)/2)
+        Q, c, r = self._convert_A_b_to_Q_c_r(A.value, b.value) 
+        Q /= r
+        self.Q = Q
+        self.c = c
+        # self.A = A.value
+        # self.b = b.value
+        self.L = np.linalg.cholesky((self.Q + self.Q.T)/2)
         return problem.value
 
+    @staticmethod 
+    def _convert_A_b_to_Q_c_r(A, b):
+        """
+        Convert ellipsoid of form ||A x - b|| <= 1
+        into standard ellipsoid form: (x - c)^T Q (x - c) <= r
+        Returns (Q, c, r)
+        """
+        Q = A.T @ A
+        Q_inv = np.linalg.inv(Q)
+        c = Q_inv @ A.T @ b
+        r = (b.T @ A @ Q_inv @ A.T @ b) - (b.T @ b) + 1
+        return Q, c, r
+
+
     # Checks if a point p is contained in this ellipse
+    # TODO: this should be done in the A,b representation instead of Q,c representation
     def contains_point(self, p):
-        return np.diag((p-self.b).T@self.A@(p-self.b) <= 1)
+        return np.diag((p-self.c).T@self.Q@(p-self.c) <= 1)
     
     def get_lb_cb(self, ell0):
         L0 = ell0.L
         L0i = np.linalg.inv(L0)
-        P = L0i @ self.A @ L0i.transpose()
+        P = L0i @ self.Q @ L0i.transpose()
         specDecomp = np.linalg.svd(P)
         lb = specDecomp[1]
-        cb = specDecomp[0].T @ L0.T @ (self.b - ell0.b)
+        cb = specDecomp[0].T @ L0.T @ (self.c - ell0.c)
         return (lb,cb.flatten())
 
     def contains_ellipsoid(self, elli1):
@@ -79,7 +99,7 @@ class Ellipsoid:
 
         # Pre-Tests
         # e_min = eigmin(elli1.P - self.P)
-        e_min = np.min(np.linalg.eigvalsh(elli1.A - self.A))
+        e_min = np.min(np.linalg.eigvalsh(elli1.Q - self.Q))
 
         # elli1 must be smaller than self so elli1.A - self.A must be positive definite
         if e_min < 0:
@@ -87,12 +107,12 @@ class Ellipsoid:
             return False
 
         # If they share a center, positive definiteness is sufficient 
-        elif np.allclose(elli1.b, self.b):
+        elif np.allclose(elli1.c, self.c):
             # print("Elli1 shares center and is smaller than self")
             return e_min >= 0
 
         # If the center of elli1 is outside self, it cannot be contained
-        elif not (self.contains_point(elli1.b)):
+        elif not (self.contains_point(elli1.c)):
             # print("Elli1 center is outside self")
             return False
 
@@ -130,13 +150,15 @@ class Ellipsoid:
 
             return f_beta[0] > -1
 
-    # Divides A by scale_factor
-    # Which is equivalent to multiplying RHS of inequality (x-b)T A (x-b) <= 1 by scale_factor
+    # Divides Q by scale_factor
+    # Which is equivalent to multiplying RHS of inequality (x-b)T Q (x-b) <= 1 by scale_factor
     def scale(self, scale_factor):
-        self.A /= scale_factor
-        self.L = np.linalg.cholesky((self.A + self.A.T)/2)
-    
+        self.Q /= scale_factor
+        self.L = np.linalg.cholesky((self.Q + self.Q.T)/2)
+
+    # TODO: This doesn't work 
     def volume(self):
+        raise NotImplementedError()
         Q = self.A.T @ self.A
         Q_inv = inv(Q)
         c = Q_inv @ self.A.T @ self.b

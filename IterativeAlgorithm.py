@@ -14,7 +14,7 @@ def P(x, A, v):
 
 # Generate the dataset
 N = 1000
-A = np.array([[1, 0], [0, 1]])
+A = np.array([[2, 0], [0, 1]])
 v = np.array([[0], [0]])
 
 # Randomly sample points uniformly from some rectangular interval
@@ -27,7 +27,7 @@ def sample_from(e: Ellipsoid, N_pts: int):
     pts = np.random.standard_normal((2, N_pts))
     r = np.random.uniform(0, 1, size=(N,)) ** (1/2) # The denominator of the power is also the dimension
     pts = r*pts/np.linalg.vector_norm(pts, axis=0)
-    return np.linalg.inv(sqrtm(e.A))@pts + e.b
+    return np.linalg.inv(sqrtm(e.Q))@pts + e.c
     
 
 def reject_and_resample(Ei: Ellipsoid, I, Pxi, rescale=0.9):
@@ -96,13 +96,14 @@ for i in range(10):
     Epxi.fit_p_ball(Pxi.T, 2)
     ax.scatter(Ii[0, :], Ii[1, :], c='black', marker='o')
     ax.scatter(Pxi[0, :], Pxi[1, :], c='black', marker='x')
-    plot_ellipse(Ei.A, Ei.b.flatten(), 1, ax, color = 'green')
-    plot_ellipse(Epxi.A, Epxi.b.flatten(), 1, ax, color = 'blue')
+    plot_ellipse(Ei.Q, Ei.c.flatten(), 1, ax, color = 'green')
+    plot_ellipse(Epxi.Q, Epxi.c.flatten(), 1, ax, color = 'blue')
     if(Ei.contains_ellipsoid(Epxi)):
-        print("Success!")
+        print("Success! Found Ellipse:")
+        print(f"Q: {Epxi.Q}, c: {Epxi.c}")
         break
     else:
-        Ii, _, _ = reject_and_resample(Ei, Ii, Pxi, rescale=1)
+        Ii, _, _ = reject_and_resample(Ei, Ii, Pxi, rescale=.99)
     ax.scatter(Ii[0, :], Ii[1, :], c='green', marker='o')
     plot_ellipse(A, v.flatten(), 1, ax, color = 'red')
     plt.show()
