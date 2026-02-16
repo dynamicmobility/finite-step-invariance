@@ -4,12 +4,12 @@ from scipy.special import gamma
 from scipy.optimize import minimize, NonlinearConstraint
 from numpy.linalg import det, inv
 
-# Defines ellipsoid as (x-b)T A (x-b) <= 1
+# Defines ellipsoid as (x-c)T Q (x-c) <= 1
 class Ellipsoid:
     def __init__(self, n = 2):
         self.Q = np.eye(n)
         self.c = np.zeros((n, 1))
-        self.L = np.linalg.cholesky((self.Q + self.Q.T)/2) # TODO: Should I be storing L like this...
+        self.L = np.linalg.cholesky((self.Q + self.Q.T)/2)
 
     # Given a dataset of xs and norm degree, fit ellipse to dataset
     # Ellipse in form ||Ax - b|| < 1
@@ -55,8 +55,6 @@ class Ellipsoid:
         Q /= r
         self.Q = Q
         self.c = c
-        # self.A = A.value
-        # self.b = b.value
         self.L = np.linalg.cholesky((self.Q + self.Q.T)/2)
         return problem.value
 
@@ -156,17 +154,9 @@ class Ellipsoid:
         self.Q /= scale_factor
         self.L = np.linalg.cholesky((self.Q + self.Q.T)/2)
 
-    # TODO: This doesn't work 
     def volume(self):
-        raise NotImplementedError()
-        Q = self.A.T @ self.A
-        Q_inv = inv(Q)
-        c = Q_inv @ self.A.T @ self.b
-        r = self.b.T @ self.A @ Q_inv @ self.A.T @ self.b - self.b.T @ self.b + 1
-
-        n = self.A.shape[1]  # dimensionality of the ellipsoid
-
-        volume = (np.pi ** (n / 2)) / gamma(n / 2 + 1) * (r ** (n / 2)) / np.sqrt(det(Q))
+        n = self.Q.shape[1]  # dimensionality of the ellipsoid
+        volume = ((np.pi ** (n / 2)) / gamma(n / 2 + 1)) / np.sqrt(det(self.Q))
         return volume
 
 # ------------------------------------------------------------------

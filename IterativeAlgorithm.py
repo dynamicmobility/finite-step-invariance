@@ -2,7 +2,10 @@ import numpy as np
 from scipy.linalg import sqrtm
 from matplotlib import pyplot as plt
 from ellipsoids import plot_ellipse, Ellipsoid
+from typing import Tuple
 import pdb
+
+PLOT = False
 
 # This is the A-norm with offset v 
 def h(x, A, v):
@@ -15,13 +18,13 @@ def P(x, A, v):
 # Generate the dataset
 N = 1000
 A = np.array([[2, 0], [0, 1]])
-v = np.array([[0], [0]])
+v = np.array([[2], [0]])
 
 # Randomly sample points uniformly from some rectangular interval
-I0 = np.random.uniform(-2, 2, size=(2, N))
+I0 = np.random.uniform(-4, 4, size=(2, N))
 
 
-def sample_from(e: Ellipsoid, N_pts: int):
+def sample_from(e: Ellipsoid, N_pts: int) -> np.ndarray:
     # Sample Normal Distribution 
     # TODO: pull dimension of ellipsoid
     pts = np.random.standard_normal((2, N_pts))
@@ -30,7 +33,7 @@ def sample_from(e: Ellipsoid, N_pts: int):
     return np.linalg.inv(sqrtm(e.Q))@pts + e.c
     
 
-def reject_and_resample(Ei: Ellipsoid, I, Pxi, rescale=0.9):
+def reject_and_resample(Ei: Ellipsoid, I, Pxi, rescale=0.9) -> Tuple[np.ndarray, Ellipsoid, np.ndarray]:
     N = Pxi.shape[1]
     in_pts = I[:, Ei.contains_point(Pxi)]
     Ein = Ellipsoid(2)
@@ -84,27 +87,28 @@ Ei = E0
 
 
 # Loop:
-for i in range(10):
+for i in range(20):
     fig, ax = plt.subplots()
     # Compute PXi = P(Ii)
     Pxi = P(Ii, A, v)
     # If E(PXi) within E(Ii)
-    Ei = Ellipsoid(2)
-    Ei.fit_p_ball(Ii.T, 2)
-
     Epxi = Ellipsoid(2)
     Epxi.fit_p_ball(Pxi.T, 2)
-    ax.scatter(Ii[0, :], Ii[1, :], c='black', marker='o')
-    ax.scatter(Pxi[0, :], Pxi[1, :], c='black', marker='x')
-    plot_ellipse(Ei.Q, Ei.c.flatten(), 1, ax, color = 'green')
-    plot_ellipse(Epxi.Q, Epxi.c.flatten(), 1, ax, color = 'blue')
+    if(PLOT):
+        ax.scatter(Ii[0, :], Ii[1, :], c='black', marker='o')
+        ax.scatter(Pxi[0, :], Pxi[1, :], c='black', marker='x')
+        plot_ellipse(Ei.Q, Ei.c.flatten(), 1, ax, color = 'green')
+        plot_ellipse(Epxi.Q, Epxi.c.flatten(), 1, ax, color = 'blue')
     if(Ei.contains_ellipsoid(Epxi)):
-        print("Success! Found Ellipse:")
+        print(f"Success! Found Ellipse after {i} iterations:")
         print(f"Q: {Epxi.Q}, c: {Epxi.c}")
         break
     else:
-        Ii, _, _ = reject_and_resample(Ei, Ii, Pxi, rescale=.99)
-    ax.scatter(Ii[0, :], Ii[1, :], c='green', marker='o')
-    plot_ellipse(A, v.flatten(), 1, ax, color = 'red')
-    plt.show()
+        Ii, Ei, _ = reject_and_resample(Ei, Ii, Pxi, rescale=1)
+
+    if(PLOT):
+        plt.title(f"Iteration {i}")
+        ax.scatter(Ii[0, :], Ii[1, :], c='green', marker='o')
+        plot_ellipse(A, v.flatten(), 1, ax, color = 'red')
+        plt.show()
 
