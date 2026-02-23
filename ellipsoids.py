@@ -73,7 +73,6 @@ class Ellipsoid:
 
 
     # Checks if a point p is contained in this ellipse
-    # TODO: this should be done in the A,b representation instead of Q,c representation
     def contains_point(self, p):
         return np.diag((p-self.c).T@self.Q@(p-self.c) <= 1)
     
@@ -187,16 +186,19 @@ def project_ellipsoid_to_2d(A, b, diml, dimh):
     c_2d = c[indices]
     return Q_2d, c_2d, r
 
-def plot_ellipse(Q, c, r, ax, alpha=0.75, color='green', **kwargs):
+def plot_ellipse(Q, c, r, ax, diml = 0, dimh = 1, alpha=0.75, color='green', **kwargs):
     """
     Plot ellipse defined by (x-c)^T Q (x-c) <= r in 2D
     """
-    eigvals, eigvecs = np.linalg.eigh(Q)
+    indices = [diml, dimh]
+    Q_2d = Q[np.ix_(indices, indices)]
+    c_2d = c[indices]
+    eigvals, eigvecs = np.linalg.eigh(Q_2d)
     theta = np.linspace(0, 2 * np.pi, 200)
     circle = np.stack([np.cos(theta), np.sin(theta)])
     # Scale the ellipse by sqrt(r)
     ellipse = eigvecs @ np.diag(np.sqrt(r) / np.sqrt(eigvals)) @ circle
-    ellipse = ellipse.T + c
+    ellipse = ellipse.T + c_2d
     ax.plot(ellipse[:, 0], ellipse[:, 1], **kwargs, color=color, alpha=alpha)
 
     return ax
