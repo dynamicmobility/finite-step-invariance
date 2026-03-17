@@ -3,6 +3,7 @@ import cvxpy as cp
 from scipy.special import gamma
 from scipy.optimize import minimize, NonlinearConstraint
 from numpy.linalg import det, inv
+from scipy.linalg import null_space
 
 # Defines ellipsoid as (x-c)T Q (x-c) <= 1
 class Ellipsoid:
@@ -12,11 +13,13 @@ class Ellipsoid:
         self.L = np.linalg.cholesky((self.Q + self.Q.T)/2)
 
     # Given a dataset of xs and norm degree, fit ellipse to dataset
-    # Ellipse in form ||Ax - b|| < 1
+    # Ellipse is fit in form ||Ax - b|| < 1 but saved in form Q, c
     def fit_p_ball(self, xs, normp, verbose=False):
         xs = np.array(xs).T
         n = np.shape(xs)[0]
         m = np.shape(xs)[1]
+
+        assert n == self.c.shape[0]
 
         A = cp.Variable((n, n), symmetric=True)
         b = cp.Variable((n,1))
@@ -175,6 +178,22 @@ def convert_A_b_to_Q_c_r(A, b):
     r = (b.T @ A @ Q_inv @ A.T @ b) - (b.T @ b) + 1
     return Q, c, r
 
+def plot_projection(Q, c, r, ax, diml = 0, dimh = 1, alpha=0.75, color='green', **kwargs):
+        P = Q / r
+        n = P.shape[0]
+        if n == 2:
+            plot_ellipse(P, c, r, ax, alpha, color, **kwargs)
+            return
+        ind = [k for k in range(n) if k not in [diml, dimh]]
+        Phat = P[ind, :]
+        N = null_space(Phat)
+        M = N[(diml, dimh), :]  # Since M is guaranteed 2x2,
+        Minv = (1 / (M[0, 0] * M[1, 1] - M[0, 1] * M[1, 0])) * np.array(
+            [[M[1, 1], -M[0, 1]], [-M[1, 0], M[0, 0]]]
+        )
+        P = Minv.T @ N.T @ P @ N @ Minv
+        plot_ellipse(P, c[(diml, dimh),], r, ax, alpha, color, **kwargs)
+
 def project_ellipsoid_to_2d(A, b, diml, dimh):
     """
     Project ellipsoid ||A x - b|| <= 1 from nD to 2D.
@@ -186,13 +205,12 @@ def project_ellipsoid_to_2d(A, b, diml, dimh):
     c_2d = c[indices]
     return Q_2d, c_2d, r
 
-def plot_ellipse(Q, c, r, ax, diml = 0, dimh = 1, alpha=0.75, color='green', **kwargs):
+def plot_ellipse(Q, c, r, ax, alpha=0.75, color='green', **kwargs):
     """
-    Plot ellipse defined by (x-c)^T Q (x-c) <= r in 2D
+    Plot 2D ellipse defined by (x-c)^T Q (x-c) <= r
     """
-    indices = [diml, dimh]
-    Q_2d = Q[np.ix_(indices, indices)]
-    c_2d = c[indices]
+    Q_2d = Q
+    c_2d = c
     eigvals, eigvecs = np.linalg.eigh(Q_2d)
     theta = np.linspace(0, 2 * np.pi, 200)
     circle = np.stack([np.cos(theta), np.sin(theta)])
