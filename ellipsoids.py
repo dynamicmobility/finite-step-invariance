@@ -3,6 +3,8 @@ import cvxpy as cp
 from scipy.special import gamma
 from scipy.optimize import minimize, NonlinearConstraint
 from numpy.linalg import det, inv
+import scipy
+
 
 # Defines ellipsoid as (x-c)T Q (x-c) <= 1
 class Ellipsoid:
@@ -10,6 +12,104 @@ class Ellipsoid:
         self.Q = np.eye(n)
         self.c = np.zeros((n, 1))
         self.L = np.linalg.cholesky((self.Q + self.Q.T)/2)
+
+    def pack(self, A, b):
+        return np.hstack([A.ravel(), b.ravel()])
+    
+    def unpack(self, p, n):
+        A = p[:n*n].reshape(n, n)
+        b = p[n*n:].reshape(n, 1)
+        return A, b
+        
+    def obj(self, p, n):
+        A, b = self.unpack(p, n)
+        A = 0.5 * (A + A.T)
+        sign, logdet = np.linalg.slogdet(A)
+        if sign <= 0:
+            return 1e10  # penalize non-PD
+        return -logdet   
+
+    
+    def sample_constraint(self, p, xs):
+        n = np.shape(xs)[0]
+        m = np.shape(xs)[1]
+        A, b = self.unpack(p, n)
+
+        # Compute A xs - b for all samples at once
+        # residual is shape (n, m)
+        residual = A @ xs - b @ np.ones((1, m))
+
+        # Compute 2‑norm of each column → shape (m,)
+        norms = np.linalg.norm(residual, axis=0)
+
+        # Return g_i = ||A x_i - b|| - 1 for each sample
+        return norms 
+    
+    def violate_map(self, e0, n, P, pmap, pv, xs):
+
+        def inner_obj(p, xs):
+            xs = np.array(xs).T
+            n = np.shape(xs)[0]
+            A, b = self.unpack(p, n)
+            A = 0.5 * (A + A.T)
+
+            x = xs.reshape(n, 1)
+            z = A @ x - b
+
+            y = np.linalg.inv(A) @ (z + b)
+            mapped = A @ P(y, pmap, pv) - b
+
+            return np.linalg.norm(mapped) - 1
+
+
+        cons = NonlinearConstraint(lambda z_flat: np.linalg.norm(z_flat) - 1.0, -np.inf, 0.0)
+        xs = np.array(xs).T
+        n = np.shape(xs)[0] 
+        A0 = np.eye(n)
+        b0 = np.zeros((n, 1))
+        p0 = self.pack(A0, b0)
+
+        res = scipy.optimize.minimize(lambda p: inner_obj(p, xs), p0, method='SLSQP', constraints=[cons])
+
+        # if inner optimization fails, treat as large violation
+        if not res.success:
+            return np.inf
+
+        return res.fun  
+
+
+    def fit_ellipsoid(self, xs, P):
+        xs = np.array(xs).T
+        n = np.shape(xs)[0]
+        m = np.shape(xs)[1]
+
+        pmap = np.array([[2, 0],
+                        [0, 1]])
+        pv = np.array([[2],
+                    [0]])
+
+        # initial A,b
+        A0 = np.eye(n)
+        b0 = np.zeros((n, 1))
+        p0 = self.pack(A0, b0)
+
+        map_constraint = NonlinearConstraint(lambda p: self.violate_map(p, n, P, pmap, pv, xs), -np.inf, 0.0)
+
+
+        res = scipy.optimize.minimize(
+            fun=lambda p: self.obj(p, n),
+            x0=p0,
+            method="SLSQP",
+            constraints=[map_constraint]
+        )
+
+        A_opt, b_opt = self.unpack(res.x, n)
+        Q, c, r = self._convert_A_b_to_Q_c_r(A_opt, b_opt) 
+        Q /= r
+        self.Q = Q
+        self.c = c
+        self.L = np.linalg.cholesky((self.Q + self.Q.T)/2)
+        return res.x
 
     # Given a dataset of xs and norm degree, fit ellipse to dataset
     # Ellipse in form ||Ax - b|| < 1
