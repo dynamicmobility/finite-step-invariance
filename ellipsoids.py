@@ -3,7 +3,7 @@ import cvxpy as cp
 from scipy.special import gamma
 from scipy.optimize import minimize, NonlinearConstraint
 from numpy.linalg import det, inv
-from scipy.linalg import null_space
+from scipy.linalg import null_space, sqrtm
 
 # Defines ellipsoid as (x-c)T Q (x-c) <= 1
 class Ellipsoid:
@@ -50,6 +50,7 @@ class Ellipsoid:
             print("A* =", A.value)
             print("b* =", b.value)
             print("volume proxy:", np.log(np.linalg.det(A.value)))
+            print(problem.status)
             if problem.status not in ["optimal", "optimal_inaccurate"]:
                 print("Optimization failed with status:", problem.status)
             else:
@@ -165,6 +166,15 @@ class Ellipsoid:
 # ------------------------------------------------------------------
 # ------------------------------------------------------------------
 # Plotting ellipsoids
+
+def sample_from(e: Ellipsoid, N_pts: int) -> np.ndarray:
+    # Sample Normal Distribution 
+    d = len(e.c)
+    pts = np.random.standard_normal((d, N_pts))
+    r = np.random.uniform(0, 1, size=(N_pts,)) ** (1/d) # The denominator of the power is also the dimension
+    pts = r*pts/np.linalg.vector_norm(pts, axis=0)
+    return np.linalg.inv(sqrtm(e.Q))@pts + e.c
+    
 
 def convert_A_b_to_Q_c_r(A, b):
     """
