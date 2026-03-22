@@ -14,10 +14,10 @@ print(jax.extend.backend.get_backend().platform)
 # =========================================================================
 # Hyperparameters
 # =========================================================================
-N        = 1000   # samples per iteration
+N        = 2000   # samples per iteration
 MAX_ITER = 30
-Q_lyap   = np.eye(3)   # Q > 0 supplied to Lyapunov equation
 PLOT     = False
+INIT_GUESS = "Contr"
 
 # =========================================================================
 # System and ODE solver
@@ -79,7 +79,7 @@ def P_single_nojit(x_guard):
                          y0=xp, args=u, event=event, throw=False)
     return full_to_guard(traj.ys.flatten())
 
-J = np.array(jax.jacrev(P_single_nojit)(jnp.zeros(3)))   # (3,3)
+J = np.array(jax.jacrev(P_single)(jnp.zeros(3)))   # (3,3)
 
 eigs = np.abs(np.linalg.eigvals(J))
 print("Jacobian eigenvalues:", eigs)
@@ -92,17 +92,34 @@ assert np.all(eigs < 1), "Limit cycle is not stable — Lyapunov equation has no
 # --- Line 1: solve  J^T P J - P = -Q  for  P > 0 -----------------------
 #   scipy.solve_discrete_lyapunov(A, Q) solves  A X A^T - X + Q = 0
 #   => set A = J^T  =>  J^T P J - P + Q = 0  =>  J^T P J - P = -Q  ✓
-P_lyap = solve_discrete_lyapunov(J.T, Q_lyap)
-assert np.all(np.linalg.eigvalsh(P_lyap) > 0), "P is not positive definite"
+# P_lyap = solve_discrete_lyapunov(J.T, Q_lyap)
+# assert np.all(np.linalg.eigvalsh(P_lyap) > 0), "P is not positive definite"
 
-# --- Line 2: A0 = P^{1/2},  b0 = P^{1/2} x*  (= 0 since x* = 0) -------
-A0 = np.real(sqrtm(P_lyap))   # matrix square root
-b0 = A0 @ x_star_guard        # = 0
+# Contraction-based procedure to compute initial guess set
+
+import cvxpy as cp
+
+# Contraction rate is the spectral radius of A
+contr_rate = jnp.max(eigs) + 1e-4
+print(contr_rate)
+P_cp = cp.Variable(J.shape, symmetric=True)
+cons = []
+cons.append(J.T @ P_cp @ J << contr_rate**2*P_cp)
+cons.append(P_cp >> jnp.eye(J.shape[0]))
+prob = cp.Problem(cp.Minimize(cp.trace(P_cp)), cons)
+prob.solve()
+
+Q0 = P_cp.value
+
 
 # Initial ellipsoid  E0 = { x : ||A0 x - b0|| <= 1 }
 #   stored as (Q,c) with Q = A0^T A0 = P_lyap, c = 0
 E0      = Ellipsoid(3)
-E0.Q    = P_lyap.copy()
+
+# pts_0 = np.random.uniform([-0.1, -1, -0.3], [0.1, 1, 0.3], (N,3))
+# E0.fit_p_ball(pts_0, 2)
+
+E0.Q    = Q0.copy() # Make E0 bigger to see if we get the same result
 E0.c    = np.zeros((3, 1))
 print(f"Initial ellipsoid volume: {E0.volume():.6e}")
 
@@ -136,19 +153,39 @@ for iteration in range(MAX_ITER):
         break
 
     # fit MVEE to W (NOT UNIONED WITH U)
-    # WU   = np.vstack((W,U))
+    WU   = np.vstack((W,U))
     Ei   = Ellipsoid(3)
     Ei.fit_p_ball(W, 2)
+    # Ei.fit_p_ball(WU, 2)
+
+    # Rescale MVEE
+    distance_to_reject = Ei.mahalanobis_distance(V.T)
+    print(min(distance_to_reject))
+    # if(min(distance_to_reject) > 0.8):
+    #     Ei.scale(min(distance_to_reject))
 
     if PLOT:
         fig, ax = plt.subplots()
         plot_projection(Ei.Q, Ei.c.flatten(), 1, ax, color='blue',   label='$\\mathcal{E}_i$')
         plot_projection(E0.Q, E0.c.flatten(), 1, ax, color='orange', label='$\\mathcal{E}_0$')
-        ax.scatter(W[:, 0], W[:, 1], c='green', s=8,  label='$\\mathcal{W}$')
-        ax.scatter(V[:, 0], V[:, 1], c='red',   s=8,
-                   marker='x', label='$\\mathcal{V}$')
+        ax.scatter(U[:, 0], U[:, 1], c='blue',  s=8, label='$\\mathcal{U}$')
+        ax.scatter(W[:, 0], W[:, 1], c='green', s=8, label='$\\mathcal{W}$')
+        ax.scatter(V[:, 0], V[:, 1], c='red',   s=8, marker='x', label='$\\mathcal{V}$')
+
         ax.set_title(f"Iteration {iteration}")
         ax.legend(fontsize=8)
+        
+        fig3d = plt.figure()
+        ax3d = fig3d.add_subplot(111, projection='3d')
+        ax3d.scatter(U[:, 0], U[:, 1], U[:, 2], c='blue', s=8, label='$\\mathcal{U}$')
+        ax3d.scatter(W[:, 0], W[:, 1], W[:, 2], c='green', s=8, label='$\\mathcal{W}$')
+        ax3d.scatter(V[:, 0], V[:, 1], V[:, 2], c='red', s=8, marker='x', label='$\\mathcal{V}$')
+        ax3d.set_title(f"Iteration {iteration} (3D)")
+        ax3d.set_xlabel('$x_1$')
+        ax3d.set_ylabel('$x_2$')
+        ax3d.set_zlabel('$x_3$')
+        ax3d.legend(fontsize=8)
+        
         plt.tight_layout()
         plt.show()
 
@@ -194,4 +231,5 @@ for ax, (i, j) in zip(axes, pairs):
 
 fig.suptitle('Final invariant ellipsoid $\\mathcal{E}^*$ (blue) vs initial $\\mathcal{E}_0$ (orange)')
 plt.tight_layout()
+plt.savefig("Ellipsoid_Invariant.png")
 plt.show()

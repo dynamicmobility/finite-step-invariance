@@ -65,6 +65,9 @@ N_STEPS = 5
 initial_pts = sample_from(E0, N).T # Preimpact states
 
 step_pts = []
+fig = plt.figure(figsize=(12, 5))
+ax1 = fig.add_subplot(1, 2, 1)
+ax2 = fig.add_subplot(1, 2, 2)
 
 for j in range(N_STEPS):
     next_pts = np.empty((N,3))
@@ -74,9 +77,6 @@ for j in range(N_STEPS):
     print("Num Remaining Trials: ", np.sum(~np.isnan(initial_pts[:, 0])))
     if(initial_pts.shape[0] == 1):
         break
-    fig = plt.figure(figsize=(12, 5))
-    ax1 = fig.add_subplot(1, 2, 1)
-    ax2 = fig.add_subplot(1, 2, 2)
     for i in range(0, initial_pts.shape[0]):
         if not np.isnan(initial_pts[i, :]).any():
             x0_pt = guard_pts_to_full(initial_pts[i, :])
@@ -105,7 +105,7 @@ for j in range(N_STEPS):
             # plt.plot(ys[:, 1], ys[:, 3])
     step_pts.append(next_pts)
     initial_pts = next_pts
-    plt.show()
+plt.show()
 # plt.close()
 
 survived_pts = step_pts[0][~np.isnan(step_pts[-1]).any(axis=1)]
