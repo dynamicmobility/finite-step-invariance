@@ -173,6 +173,12 @@ class Ellipsoid:
         r = (b.T @ A @ Q_inv @ A.T @ b) - (b.T @ b) + 1
         return Q, c, r
 
+    def mahalanobis_distance(self, p):
+        return np.diag((p-self.c).T@self.Q@(p-self.c))
+
+    # Checks if a point p is contained in this ellipse
+    def contains_point(self, p):
+        return self.mahalanobis_distance(p) <= 1
 
     # Checks if a point p is contained in this ellipse
     def contains_point(self, p):
