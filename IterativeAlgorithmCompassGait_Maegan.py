@@ -16,8 +16,9 @@ print(jax.extend.backend.get_backend().platform)
 # =========================================================================
 N        = 2000   # samples per iteration
 MAX_ITER = 30
-PLOT     = False
-INIT_GUESS = "Contr"
+PLOT     = True  # Shows the plot every iteration
+INIT_GUESS = "Contraction" # Either choose from uniform distribution or guess Q from contraction metric "Contraction" or "Uniform"
+RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast 
 
 # =========================================================================
 # System and ODE solver
@@ -69,16 +70,6 @@ assert jnp.allclose(P_single(jnp.zeros(3)), jnp.zeros(3), atol=5e-4), \
 # =========================================================================
 x_star_guard = np.zeros(3)
 
-# Jacobian  J = DP(x*)  via automatic differentiation.
-# We use a plain (non-JIT) version so that jax.jacrev can trace through
-# the event-terminated ODE solve correctly.
-def P_single_nojit(x_guard):
-    x_full = guard_to_full(x_guard)
-    xp     = sys.reset(0, x_full)
-    traj   = diffeqsolve(term, solver, t0=0, t1=2, dt0=0.001,
-                         y0=xp, args=u, event=event, throw=False)
-    return full_to_guard(traj.ys.flatten())
-
 J = np.array(jax.jacrev(P_single)(jnp.zeros(3)))   # (3,3)
 
 eigs = np.abs(np.linalg.eigvals(J))
@@ -97,30 +88,33 @@ assert np.all(eigs < 1), "Limit cycle is not stable — Lyapunov equation has no
 
 # Contraction-based procedure to compute initial guess set
 
-import cvxpy as cp
-
-# Contraction rate is the spectral radius of A
-contr_rate = jnp.max(eigs) + 1e-4
-print(contr_rate)
-P_cp = cp.Variable(J.shape, symmetric=True)
-cons = []
-cons.append(J.T @ P_cp @ J << contr_rate**2*P_cp)
-cons.append(P_cp >> jnp.eye(J.shape[0]))
-prob = cp.Problem(cp.Minimize(cp.trace(P_cp)), cons)
-prob.solve()
-
-Q0 = P_cp.value
 
 
 # Initial ellipsoid  E0 = { x : ||A0 x - b0|| <= 1 }
 #   stored as (Q,c) with Q = A0^T A0 = P_lyap, c = 0
 E0      = Ellipsoid(3)
 
-# pts_0 = np.random.uniform([-0.1, -1, -0.3], [0.1, 1, 0.3], (N,3))
-# E0.fit_p_ball(pts_0, 2)
+if INIT_GUESS == "Uniform":
+    pts_0 = np.random.uniform([-0.1, -1, -0.3], [0.1, 1, 0.3], (N,3))
+    E0.fit_p_ball(pts_0, 2)
 
-E0.Q    = Q0.copy() # Make E0 bigger to see if we get the same result
-E0.c    = np.zeros((3, 1))
+elif INIT_GUESS == "Contraction":
+    import cvxpy as cp
+
+    # Contraction rate is the spectral radius of A
+    contr_rate = jnp.max(eigs) + 1e-4
+    print(contr_rate)
+    P_cp = cp.Variable(J.shape, symmetric=True)
+    cons = []
+    cons.append(J.T @ P_cp @ J << contr_rate**2*P_cp)
+    cons.append(P_cp >> jnp.eye(J.shape[0]))
+    prob = cp.Problem(cp.Minimize(cp.trace(P_cp)), cons)
+    prob.solve()
+
+    Q0 = P_cp.value
+    E0.Q    = Q0.copy() # Make E0 bigger to see if we get the same result
+    E0.c    = np.zeros((3, 1))
+
 print(f"Initial ellipsoid volume: {E0.volume():.6e}")
 
 # --- Line 3: initialise A, b, E -----------------------------------------
@@ -157,16 +151,19 @@ for iteration in range(MAX_ITER):
     Ei   = Ellipsoid(3)
     Ei.fit_p_ball(W, 2)
     # Ei.fit_p_ball(WU, 2)
-
-    # Rescale MVEE
-    distance_to_reject = Ei.mahalanobis_distance(V.T)
-    print(min(distance_to_reject))
-    # if(min(distance_to_reject) > 0.8):
-    #     Ei.scale(min(distance_to_reject))
-
     if PLOT:
         fig, ax = plt.subplots()
         plot_projection(Ei.Q, Ei.c.flatten(), 1, ax, color='blue',   label='$\\mathcal{E}_i$')
+
+    # Rescale MVEE
+    if RESCALE:
+        distance_to_reject = Ei.mahalanobis_distance(V.T)
+        Ei.scale(min(distance_to_reject))
+        if PLOT:
+            plot_projection(Ei.Q, Ei.c.flatten(), 1, ax, color='cyan',   label='$\\mathcal{E}_i$ Rescale')
+
+    if PLOT:
+        # fig, ax = plt.subplots()
         plot_projection(E0.Q, E0.c.flatten(), 1, ax, color='orange', label='$\\mathcal{E}_0$')
         ax.scatter(U[:, 0], U[:, 1], c='blue',  s=8, label='$\\mathcal{U}$')
         ax.scatter(W[:, 0], W[:, 1], c='green', s=8, label='$\\mathcal{W}$')
