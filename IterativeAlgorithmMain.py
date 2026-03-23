@@ -5,6 +5,7 @@ from ellipsoids import Ellipsoid, plot_projection, sample_from
 import CompassGaitWalker
 import ExpanderContractor
 import jax
+from datetime import datetime
 import jax.numpy as jnp
 print("Using backend: ", jax.default_backend())
 
@@ -14,15 +15,15 @@ print("Using backend: ", jax.default_backend())
 # =========================================================================
 N        = 2000   # samples per iteration
 MAX_ITER = 200
-PLOT     = True  # Shows the plot every iteration
+PLOT     = False  # Shows the plot every iteration
 RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast
 
 # =========================================================================
 # Model Setup
 # =========================================================================
 
-# sys = CompassGaitWalker
-sys = ExpanderContractor
+sys = CompassGaitWalker
+# sys = ExpanderContractor
 
 # =========================================================================
 # Main Algorithm – Identify Invariant Ellipsoid
@@ -78,16 +79,21 @@ for iteration in range(MAX_ITER):
         fig, ax = plt.subplots()
         plot_projection(Ei.Q, Ei.c.flatten(), 1, ax, color='blue',   label='$\\mathcal{E}_i$')
 
+    distance_to_reject = Ei.mahalanobis_distance(VZ.T)
+    print(min(distance_to_reject)) # If this is > 1 then there are points in V union Z that are inside the new ellipsoid
     # Rescale MVEE
     if RESCALE:
+        Ei.scale(min(distance_to_reject)-1e-5)
         distance_to_reject = Ei.mahalanobis_distance(VZ.T)
-        print(min(distance_to_reject))
-        Ei.scale(min(distance_to_reject))
+        # print(distance_to_reject)
+        assert min(distance_to_reject) > 1
+        assert np.all(Ei.contains_point(VZ.T) == False)
         if PLOT:
             plot_projection(Ei.Q, Ei.c.flatten(), 1, ax, color='cyan',   label='$\\mathcal{E}_i$ Rescale')
 
     if PLOT:
         # fig, ax = plt.subplots()
+        # Blue goes to Green, Red goes to Yellow
         plot_projection(E0.Q, E0.c.flatten(), 1, ax, color='orange', label='$\\mathcal{E}_0$')
         ax.scatter(U[:, 0], U[:, 1], c='blue',  s=8, label='$\\mathcal{U}$')
         ax.scatter(W[:, 0], W[:, 1], c='green', s=8, marker='x', label='$\\mathcal{W}$')
@@ -101,8 +107,9 @@ for iteration in range(MAX_ITER):
             fig3d = plt.figure()
             ax3d = fig3d.add_subplot(111, projection='3d')
             ax3d.scatter(U[:, 0], U[:, 1], U[:, 2], c='blue', s=8, label='$\\mathcal{U}$')
-            ax3d.scatter(W[:, 0], W[:, 1], W[:, 2], c='green', s=8, label='$\\mathcal{W}$')
-            ax3d.scatter(V[:, 0], V[:, 1], V[:, 2], c='red', s=8, marker='x', label='$\\mathcal{V}$')
+            ax3d.scatter(W[:, 0], W[:, 1], W[:, 2], c='green', s=8, marker='x', label='$\\mathcal{W}$')
+            ax3d.scatter(Z[:, 0], Z[:, 1], Z[:, 2], c='red', s=8, label='$\\mathcal{Z}$')
+            ax3d.scatter(V[:, 0], V[:, 1], V[:, 2], c='yellow', s=8, marker='x', label='$\\mathcal{V}$')
             ax3d.set_title(f"Iteration {iteration} (3D)")
             ax3d.set_xlabel('$x_1$')
             ax3d.set_ylabel('$x_2$')
@@ -152,8 +159,10 @@ for ax, (i, j) in zip(axes, pairs):
     ax.set_xlabel(labels[i])
     ax.set_ylabel(labels[j])
     ax.legend(fontsize=7)
-
 fig.suptitle('Final invariant ellipsoid $\\mathcal{E}^*$ (blue) vs initial $\\mathcal{E}_0$ (orange)')
 plt.tight_layout()
-plt.savefig("Ellipsoid_Invariant.png")
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+with open(f"Ellipsoid_Invariant_{timestamp}.txt", 'w') as f:
+    f.write(f"Q =\n{E_star.Q}\n\nc =\n{E_star.c.T}\n")
+plt.savefig(f"Ellipsoid_Invariant_{timestamp}.png")
 plt.show()
