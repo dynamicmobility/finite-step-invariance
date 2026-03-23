@@ -1,6 +1,4 @@
 import numpy as np
-import jax
-import jax.numpy as jnp
 from scipy.linalg import solve_discrete_lyapunov, sqrtm
 from matplotlib import pyplot as plt
 from ellipsoids import Ellipsoid, plot_projection, sample_from
@@ -9,16 +7,19 @@ from diffrax import diffeqsolve, ODETerm, Dopri8, Event
 from equinox import filter_jit
 import optimistix as optx
 
-print(jax.extend.backend.get_backend().platform)
 
 # =========================================================================
 # Hyperparameters
 # =========================================================================
-N        = 2000   # samples per iteration
+N        = 5000   # samples per iteration
 MAX_ITER = 30
 PLOT     = True  # Shows the plot every iteration
 INIT_GUESS = "Contraction" # Either choose from uniform distribution or guess Q from contraction metric "Contraction" or "Uniform"
-RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast 
+RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast
+
+import jax
+import jax.numpy as jnp
+print("Using backend: ", jax.default_backend())
 
 # =========================================================================
 # System and ODE solver
@@ -149,7 +150,11 @@ for iteration in range(MAX_ITER):
     # fit MVEE to W (NOT UNIONED WITH U)
     WU   = np.vstack((W,U))
     Ei   = Ellipsoid(3)
-    Ei.fit_p_ball(W, 2)
+    try:
+        Ei.fit_p_ball(W, 2)
+    except np.linalg.LinAlgError:
+        print("W not well-conditioned, resampling")
+        continue
     # Ei.fit_p_ball(WU, 2)
     if PLOT:
         fig, ax = plt.subplots()
