@@ -4,29 +4,32 @@ from matplotlib import pyplot as plt
 from ellipsoids import Ellipsoid, plot_projection, sample_from
 import CompassGaitWalker
 import ExpanderContractor
+import jax
+import jax.numpy as jnp
+print("Using backend: ", jax.default_backend())
 
 
 # =========================================================================
 # Hyperparameters
 # =========================================================================
-N        = 5000   # samples per iteration
+N        = 2000   # samples per iteration
 MAX_ITER = 200
-PLOT     = False  # Shows the plot every iteration
+PLOT     = True  # Shows the plot every iteration
 RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast
 
-import jax
-import jax.numpy as jnp
-print("Using backend: ", jax.default_backend())
+# =========================================================================
+# Model Setup
+# =========================================================================
 
-sys = CompassGaitWalker
-# sys = ExpanderContractor
+# sys = CompassGaitWalker
+sys = ExpanderContractor
 
 # =========================================================================
 # Main Algorithm – Identify Invariant Ellipsoid
 # =========================================================================
 
 # Initial ellipsoid  E0 = { x : ||A0 x - b0|| <= 1 }
-#   stored as (Q,c)
+# Initial guess is system-dependent
 E0      = sys.initial_guess()
 
 print(f"Initial ellipsoid volume: {E0.volume():.6e}")
@@ -77,7 +80,8 @@ for iteration in range(MAX_ITER):
 
     # Rescale MVEE
     if RESCALE:
-        distance_to_reject = Ei.mahalanobis_distance(Z.T)
+        distance_to_reject = Ei.mahalanobis_distance(VZ.T)
+        print(min(distance_to_reject))
         Ei.scale(min(distance_to_reject))
         if PLOT:
             plot_projection(Ei.Q, Ei.c.flatten(), 1, ax, color='cyan',   label='$\\mathcal{E}_i$ Rescale')
@@ -86,8 +90,9 @@ for iteration in range(MAX_ITER):
         # fig, ax = plt.subplots()
         plot_projection(E0.Q, E0.c.flatten(), 1, ax, color='orange', label='$\\mathcal{E}_0$')
         ax.scatter(U[:, 0], U[:, 1], c='blue',  s=8, label='$\\mathcal{U}$')
-        ax.scatter(W[:, 0], W[:, 1], c='green', s=8, label='$\\mathcal{W}$')
-        ax.scatter(V[:, 0], V[:, 1], c='red',   s=8, marker='x', label='$\\mathcal{V}$')
+        ax.scatter(W[:, 0], W[:, 1], c='green', s=8, marker='x', label='$\\mathcal{W}$')
+        ax.scatter(Z[:, 0], Z[:, 1], c='red',   s=8, label='$\\mathcal{Z}$')
+        ax.scatter(V[:, 0], V[:, 1], c='yellow',   s=8, marker='x', label='$\\mathcal{V}$')
 
         ax.set_title(f"Iteration {iteration}")
         ax.legend(fontsize=8)
