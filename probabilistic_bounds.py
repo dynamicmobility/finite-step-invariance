@@ -1,6 +1,38 @@
 from scipy.optimize import minimize, NonlinearConstraint
-from scipy.stats import binom 
+from scipy.stats import binom, beta
 import math
+
+# Scenario Bound
+def scenario_bound(num_optimization_vars: int, num_samples: int, beta:float) -> float:
+
+    k = num_optimization_vars - 1
+    N = num_samples
+
+    def objective(p):
+        return -p  # maximize p
+    
+    def binom_cdf(e, k, l):
+        return binom.cdf(k, l, e)
+    
+    def binom_cdf_if_fails(e, k, l):
+        binom_sum = 0
+        for j in range(0, k+1):
+            if not math.isnan(binom.pmf(j, l, e)[0]):
+                binom_sum += binom.pmf(j, l, e)
+        return binom_sum
+    
+    lc = NonlinearConstraint((lambda p : binom_cdf(p, k, N) - beta), lb=0, ub=1)
+    result = minimize(objective, x0=k/N, constraints=lc, method='SLSQP')
+
+    if not result.success:
+        print("Optimization failed:", result.message, " re-running with different cdf function")
+        lc = NonlinearConstraint((lambda p : binom_cdf_if_fails(p, k, N) - beta), lb=0, ub=1)
+        result = minimize(objective, x0=k/N, constraints=lc, method='SLSQP')
+        if not result.success:
+            print("Optimization failed again:", result.message, "use beta.ppf:")
+            return 1- beta.ppf(0.000000001, num_samples-k, k+1)
+
+    return result.x[0]
 
 # Binomial tail inversion to calculate accuracy level given a test datasest
 def binomial_tail(misses: int, num_samples: int) -> float:
@@ -31,9 +63,13 @@ def binomial_tail(misses: int, num_samples: int) -> float:
         print("Optimization failed:", result.message, " re-running with different cdf function")
         lc = NonlinearConstraint((lambda p : binom_cdf_if_fails(p, k, n) - 0.000000001), lb=0, ub=1)
         result = minimize(objective, x0=k/n, constraints=lc, method='SLSQP')
+        if not result.success:
+            print("Optimization failed again:", result.message, "use beta.ppf:")
+            return 1- beta.ppf(0.000000001, num_samples-misses, misses+1)
 
     return result.x[0]
 
 if __name__ == '__main__':
     # Test cases
-    print("8 :", binomial_tail(8, 1500))
+    print(scenario_bound(6, 1500,  0.000000001))
+    print(binomial_tail(6, 1500))
