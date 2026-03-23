@@ -1,10 +1,16 @@
+import numpy as np
 import jax.numpy as jnp
 import jax
 from numpy.typing import ArrayLike
 from matplotlib.collections import LineCollection
+from ellipsoids import Ellipsoid
+from diffrax import diffeqsolve, ODETerm, Dopri8, Event
+from equinox import filter_jit
+import optimistix as optx
 
 # Dynamics taken from Hybrid Limit Cycles of Walking Robots 
 # Underactuated Robotics (https://underactuated.mit.edu/simple_legs.html) Also uses these dynamics but the coordinates are flipped
+d = 3
 g = 9.81
 class CompassGaitWalker:
     '''
@@ -81,6 +87,92 @@ class CompassGaitWalker:
         tsw, tst, tswd, tstd = x.ravel()
         return jnp.array([self.l*jnp.sin(tst) - self.l*(jnp.sin(tsw)), self.l*jnp.cos(tst)- self.l*jnp.cos(tsw)]) # Needed for finding the global offset that advances the robot every step
     
+
+# =========================================================================
+# System and ODE solver
+# =========================================================================
+sys    = CompassGaitWalker(m=5., mh=10., a=0.5, b=0.5, gamma=0.0525)
+x_star = np.array([-0.21876908, 0.32376908, 1.8083619, 1.49571536])  # fixed point
+assert jnp.abs(sys.guard(0, x_star)) < 1e-5, "x_star is not on the guard"
+
+term   = ODETerm(sys.f)
+solver = Dopri8()
+u      = 0.0
+event  = Event(sys.guard, optx.Newton(5e-7, 5e-7, optx.rms_norm), direction=True)
+
+# =========================================================================
+# Guard surface chart: 3-D parameterisation of the 4-D guard surface
+#   full_state = guard_surface_chart @ guard_coords + x_star
+# =========================================================================
+_c                 = jnp.array([[1, 1, 0, 0]]).T
+_guard_chart       = jnp.array([[1, -1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]).T
+_guard_chart_inv   = jnp.linalg.inv(jnp.hstack((_guard_chart, _c)))
+
+def guard_to_full(x_guard):
+    """(3,) or (N,3) guard coords -> (4,) or (N,4) full state"""
+    return (_guard_chart @ x_guard.T).T + x_star
+
+def full_to_guard(x_full):
+    """(4,) or (N,4) full state -> (3,) or (N,3) guard coords"""
+    return ((_guard_chart_inv @ (x_full - x_star).T).T)[..., :3]
+
+# =========================================================================
+# Poincaré return map  P : S -> S  (guard coords -> guard coords)
+# =========================================================================
+@filter_jit
+def P_single(x_guard):
+    x_full = guard_to_full(x_guard)
+    xp     = sys.reset(0, x_full)
+    traj   = diffeqsolve(term, solver, t0=0, t1=2, dt0=0.001,
+                         y0=xp, args=u, event=event, throw=False)
+    return full_to_guard(traj.ys.flatten())
+
+P_batch = jax.vmap(P_single, in_axes=0)   # (N,3) -> (N,3)
+
+J = jax.jacrev(P_single)(jnp.array([0., 0., 0.]))
+
+# Either choose from uniform distribution or guess Q from contraction metric "Contraction" or "Uniform"
+def initial_guess(strategy="Contraction"):
+    E0 = Ellipsoid(3)
+    if strategy == "Uniform":
+        pts_0 = np.random.uniform([-0.1, -1, -0.3], [0.1, 1, 0.3], (N,3))
+        E0.fit_p_ball(pts_0, 2)
+
+    elif strategy == "Contraction":
+        import cvxpy as cp
+        # print(J)
+        eigs = np.abs(np.linalg.eigvals(J))
+        # Contraction rate is the spectral radius of A
+        contr_rate = jnp.max(eigs) + 1e-4
+        # print(contr_rate)
+        P_cp = cp.Variable(J.shape, symmetric=True)
+        cons = []
+        cons.append(J.T @ P_cp @ J << contr_rate**2*P_cp)
+        cons.append(P_cp >> jnp.eye(J.shape[0]))
+        prob = cp.Problem(cp.Minimize(cp.trace(P_cp)), cons)
+        prob.solve()
+
+        Q0 = P_cp.value
+        E0.Q    = Q0.copy() # Make E0 bigger to see if we get the same result
+        E0.c    = np.zeros((3, 1))
+
+    return E0
+
+# sanity-check: fixed point maps to itself
+# assert jnp.allclose(P_single(jnp.zeros(3)), jnp.zeros(3), atol=5e-4), \
+#     "Fixed point does not map to itself — check system / solver"
+
+# =========================================================================
+# INPUTS  (x* = 0 in guard coords by construction)
+# =========================================================================
+# x_star_guard = np.zeros(3)
+
+# J = np.array(jax.jacrev(P_single)(jnp.zeros(3)))   # (3,3)
+
+# eigs = np.abs(np.linalg.eigvals(J))
+# print("Jacobian eigenvalues:", eigs)
+# assert np.all(eigs < 1), "Limit cycle is not stable — Lyapunov equation has no PD solution"
+
 
 if __name__ == "__main__":
     import numpy as np
