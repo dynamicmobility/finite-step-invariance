@@ -10,7 +10,7 @@ c2 = np.array([ 0.6, 0.0])
 R  = 0.6      # radius of each lobe
 PUSH = 1.3    # expansion factor outside the t-bone
 
-def _in_tbone(x):
+def _in_dogbone(x):
     """Boolean mask: True if x is inside either lobe. x: (N, 2)"""
     in_c1 = np.sum((x - c1)**2, axis=1) <= R**2
     in_c2 = np.sum((x - c2)**2, axis=1) <= R**2
@@ -25,7 +25,7 @@ def P_batch(x):
     """
     x      = np.atleast_2d(x)
     out    = x.copy()
-    inside = _in_tbone(x)
+    inside = _in_dogbone(x)
 
     # Inside: contract toward nearest lobe center
     d1         = np.sum((x - c1)**2, axis=1)
@@ -70,9 +70,9 @@ if __name__ == '__main__':
     print("Contraction check OK")
 
     # Check expansion outside t-bone
-    x_out_tbone = np.array([[1.5, 1.5], [-1.5, -1.5]])
-    x_pushed    = P_batch(x_out_tbone)
-    assert np.all(np.sum(x_pushed**2, axis=1) > np.sum(x_out_tbone**2, axis=1)), \
+    x_out_dogbone = np.array([[1.5, 1.5], [-1.5, -1.5]])
+    x_pushed    = P_batch(x_out_dogbone)
+    assert np.all(np.sum(x_pushed**2, axis=1) > np.sum(x_out_dogbone**2, axis=1)), \
         "Should expand outside t-bone"
     print("Expansion check OK")
 
