@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from ellipsoids import Ellipsoid, plot_projection, sample_from
 import CompassGaitWalker
 import ExpanderContractor
-import TBone
+import DogBone
 import jax
 from datetime import datetime
 import jax.numpy as jnp
