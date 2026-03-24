@@ -2,7 +2,7 @@ import numpy as np
 from scipy.linalg import solve_discrete_lyapunov, sqrtm
 from matplotlib import pyplot as plt
 from ellipsoids import Ellipsoid, plot_projection, sample_from
-import CompassGaitWalker
+# import CompassGaitWalker
 import ExpanderContractor
 import TBone
 import jax

@@ -1,5 +1,6 @@
 import numpy as np
 from ellipsoids import Ellipsoid
+from radialBasisFunctions import RBF
 
 d = 2
 
@@ -44,6 +45,11 @@ def initial_guess():
     E0.fit_p_ball(pts, 2)
     return E0
 
+def initial_guess_rbf():
+    pts = np.random.uniform(low=-2, high=2, size=(100, d))
+    E0 = RBF(d, np.log(0.25))
+    E0 = E0.fit_rbf(pts, 1)
+    return E0
 
 if __name__ == '__main__':
     # Tests
