@@ -2,12 +2,13 @@ import numpy as np
 from scipy.linalg import solve_discrete_lyapunov, sqrtm
 from matplotlib import pyplot as plt
 from ellipsoids import Ellipsoid, plot_projection, sample_from
-# import CompassGaitWalker
+import CompassGaitWalker
 import ExpanderContractor
 import TBone
 import jax
 from datetime import datetime
 import jax.numpy as jnp
+from probabilistic_bounds import binomial_tail
 print("Using backend: ", jax.default_backend())
 
 
@@ -18,14 +19,15 @@ N        = 2000   # samples per iteration
 MAX_ITER = 200
 PLOT     = False  # Shows the plot every iteration
 RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast
+EPS_THRESHOLD = 0.03 # It doesn't really converge any lower than this
 
 # =========================================================================
 # Model Setup
 # =========================================================================
 
-# sys = CompassGaitWalker
+sys = CompassGaitWalker
 # sys = ExpanderContractor
-sys = TBone
+# sys = TBone
 
 # =========================================================================
 # Main Algorithm – Identify Invariant Ellipsoid
@@ -59,12 +61,16 @@ for iteration in range(MAX_ITER):
     Z      = Xi[~in_E, :]         # preimage of escaped return points
 
     n_tot = len(W) + len(V)
+    n_esc    = int(np.sum(~in_E))
     print(f"Iter {iteration:3d}: |V|={len(V):4d}/{n_tot}  "
           f"({100*len(V)/n_tot:.1f}% escaped)  vol={Ei.volume():.4e}")
 
     # --- Lines 14-19: update ellipsoid if any points escaped --------------
-    if len(V) == 0:
-        print(f"\nConverged — V = ∅  after {iteration} iterations.")
+    epsilon = binomial_tail(n_esc, N)
+    print(f"Iter {iteration:3d}: epsilon={epsilon}")
+    # do active verification so we can use as a termination criteria
+    if epsilon < EPS_THRESHOLD:
+        print(f"\nConverged after {iteration} iterations,  with epsilon = {epsilon}")
         break
 
     # fit MVEE to W (NOT UNIONED WITH U)
@@ -82,7 +88,7 @@ for iteration in range(MAX_ITER):
         plot_projection(Ei.Q, Ei.c.flatten(), 1, ax, color='blue',   label='$\\mathcal{E}_i$')
 
     distance_to_reject = Ei.mahalanobis_distance(VZ.T)
-    print(min(distance_to_reject)) # If this is > 1 then there are points in V union Z that are inside the new ellipsoid
+    # print(min(distance_to_reject)) # If this is > 1 then there are points in V union Z that are inside the new ellipsoid
     # Rescale MVEE
     if RESCALE:
         Ei.scale(min(distance_to_reject)-1e-5)
