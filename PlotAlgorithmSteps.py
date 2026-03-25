@@ -35,7 +35,7 @@ from ellipsoids import Ellipsoid, sample_from
 # =========================================================================
 # System
 # =========================================================================
-import DogBone as sys
+import ExpanderContractor as sys
 
 # =========================================================================
 # Paper style
@@ -94,7 +94,7 @@ def plot_filled_ellipse(Q, c, ax, fill_alpha=1.0,
             linestyle=outline_style, linewidth=1.5, zorder=outline_zorder)
 
 
-def _autolim(ax, margin=0.18, bottom_extra=0.35):
+def _autolim(ax, margin=0.3, bottom_extra=0.2):
     """margin: uniform padding; bottom_extra: additional fraction added to the
     bottom only, pushing the ellipse upward to leave room for the legend."""
     ax.autoscale(enable=True, tight=True)
@@ -115,7 +115,7 @@ N = 200
 E0 = sys.initial_guess()
 Ei = E0
 
-for _ in range(3):
+for _ in range(1):
     Xi_tmp       = sample_from(Ei, 600).T
     Xi_prime_tmp = sys.P_batch(Xi_tmp)
     in_E_tmp     = Ei.contains_point(Xi_prime_tmp.T)
