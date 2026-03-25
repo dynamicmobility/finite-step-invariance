@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from ellipsoids import Ellipsoid, plot_projection, sample_from
 import CompassGaitWalker
 import ExpanderContractor
-import TBone
+import DogBone
 import jax
 from datetime import datetime
 import jax.numpy as jnp
@@ -12,7 +12,7 @@ from probabilistic_bounds import binomial_tail
 
 N_VERIFY = 2000
 N_STEPS = 10
-filename = 'Ellipsoid_Invariant_20260324_181527.txt'
+filename = 'Ellipsoid_Invariant_20260324_191555.txt'
 
 def parse_ellipsoid_file(filepath):
     """Parse ellipsoid file and return Ellipsoid object."""
@@ -52,7 +52,7 @@ def parse_ellipsoid_file(filepath):
     return e
 
 # Load ellipsoid from file
-ellipsoid = parse_ellipsoid_file('/home/varun/Documents/DynamoLab/WalkerScenarioOptimization/Ellipsoid_Invariant_20260324_173847.txt')
+ellipsoid = parse_ellipsoid_file(filename)
 samples = sample_from(ellipsoid, N_VERIFY).T
 assert np.all(ellipsoid.contains_point(samples.T))
 
@@ -84,6 +84,7 @@ if samples.shape[1] >= 3:
     plt.show()
 
 plt.plot(range(N_STEPS), dists)
+plt.plot(range(N_STEPS), np.ones((N_STEPS)), '--')
 plt.show()
 
 
