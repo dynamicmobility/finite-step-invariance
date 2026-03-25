@@ -42,7 +42,7 @@ import ExpanderContractor as sys
 # =========================================================================
 FONT_FS   = 7      # base font / axis label size (combined figure)
 TICK_FS   = 7       # tick label size (combined figure)
-LEG_FS    = 6       # legend font size (combined figure)
+LEG_FS    = 8       # legend font size (combined figure)
 
 mpl.rcParams.update({
     'font.family':      'serif',
@@ -63,10 +63,10 @@ mpl.rcParams.update({
 # =========================================================================
 C = {
     'Xi':         '#AAAAAA',   # neutral grey   — raw samples (Step 1 / Step 2)
-    'V':          '#CC8888',   # light red      — escaped return points
-    'W':          '#000000',   # black          — contained return points
-    'Z':          '#BBBBBB',   # light grey     — preimages of V
-    'U':          '#88CC88',   # light green    — preimages of W
+    'V':          '#BB2222',   # dark red       — escaped return points  (panel b)
+    'W':          '#1155AA',   # dark blue      — contained return points (panel b)
+    'Z':          '#EE8833',   # orange         — preimages of V (panel c)
+    'U':          '#44AA44',   # green          — preimages of W (panel c/d)
     'arrow':      '#000000',   # black          — mapping arrows
     'Ei_outline': '#000000',   # black          — ellipsoid outline
     'Ei_prev':    '#888888',   # mid grey       — dotted previous ellipsoid
@@ -174,7 +174,8 @@ def draw_panel(ax, idx, show_title=True):
                   label='$\\mathcal{E}_i$'),
             Line2D([0], [0], marker='o', color='w', markerfacecolor=C['Xi'],
                    markersize=6, label='$\\{\\mathbf{x}_i\\}$'),
-        ], fontsize=LEG_FS, loc='lower center', framealpha=0.9, ncol=2)
+        ], fontsize=LEG_FS, loc='lower center', framealpha=0.9, ncol=2,
+           handlelength=1.0, handletextpad=0.4, columnspacing=0.8)
 
     elif idx == 1:
         plot_filled_ellipse(Ei.Q, Ei.c.flatten(), ax)
@@ -192,10 +193,11 @@ def draw_panel(ax, idx, show_title=True):
         _autolim(ax)
         ax.legend(handles=[
             Line2D([0], [0], marker='o', color='w', markerfacecolor=C['W'],
-                   markersize=6, label='$\\mathcal{P}(\\mathbf{x}_i) \\in \\mathcal{E}_i$  ($\\mathcal{W}$)'),
+                   markersize=6, label='$\\mathcal{W}:= \{\\mathcal{P}(\\mathbf{x}_i) \\mid \mathcal{P}(\\mathbf{x}_i) \\in \\mathcal{E}_i\}$'),
             Line2D([0], [0], marker='o', color='w', markerfacecolor=C['V'],
-                   markersize=6, label='$\\mathcal{P}(\\mathbf{x}_i) \\notin \\mathcal{E}_i$  ($\\mathcal{V}$)'),
-        ], fontsize=LEG_FS, loc='lower center', framealpha=0.9, ncol=2)
+                   markersize=6, label='$\\mathcal{V}:= \{\\mathcal{P}(\\mathbf{x}_i) \\mid \mathcal{P}(\\mathbf{x}_i) \\notin \\mathcal{E}_i\}$'),
+        ], fontsize=LEG_FS, loc='lower center', framealpha=0.9, ncol=1,
+           handlelength=1.0, handletextpad=0.4, columnspacing=0.8)
 
     elif idx == 2:
         plot_filled_ellipse(Ei.Q, Ei.c.flatten(), ax)
@@ -203,11 +205,12 @@ def draw_panel(ax, idx, show_title=True):
         ax.scatter(U[:, 0], U[:, 1], s=PT, c=C['U'], alpha=ALF, zorder=3)
         _autolim(ax)
         ax.legend(handles=[
-            Line2D([0], [0], marker='o', color='w', markerfacecolor=C['Z'],
-                   markersize=6, label='$\\mathcal{Z}$'),
             Line2D([0], [0], marker='o', color='w', markerfacecolor=C['U'],
-                   markersize=6, label='$\\mathcal{U}$'),
-        ], fontsize=LEG_FS, loc='lower center', framealpha=0.9, ncol=3)
+                   markersize=6, label='$\\mathcal{U}:= \{\\mathbf{x}_i \\mid \\mathcal{P}(\\mathbf{x}_i) \\in \\mathcal{W}\}$'),
+            Line2D([0], [0], marker='o', color='w', markerfacecolor=C['Z'],
+                   markersize=6, label='$\\mathcal{Z}:= \{\\mathbf{x}_i \\mid \\mathcal{P}(\\mathbf{x}_i) \\in \\mathcal{V}\}$'),
+        ], fontsize=LEG_FS, loc='lower center', framealpha=0.9, ncol=1,
+           handlelength=1.0, handletextpad=0.4, columnspacing=0.8)
 
     elif idx == 3:
         plot_filled_ellipse(Ei.Q, Ei.c.flatten(), ax,
@@ -224,7 +227,8 @@ def draw_panel(ax, idx, show_title=True):
                   label='$\\mathcal{E}_{i+1}$'),
             Line2D([0], [0], marker='o', color='w', markerfacecolor=C['U'],
                    markersize=6, label='$\\mathcal{U}$'),
-        ], fontsize=LEG_FS, loc='lower center', framealpha=0.9, ncol=3)
+        ], fontsize=LEG_FS, loc='lower center', framealpha=0.9, ncol=3,
+           handlelength=1.0, handletextpad=0.4, columnspacing=0.8)
 
 
 def draw_panels(axes, show_titles=True):
