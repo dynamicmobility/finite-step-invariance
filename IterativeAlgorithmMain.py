@@ -26,8 +26,8 @@ EPS_THRESHOLD = 0.03 # It doesn't really converge any lower than this
 # Model Setup
 # =========================================================================
 
-# sys = CompassGaitWalker
-sys = ExpanderContractor
+sys = CompassGaitWalker
+# sys = ExpanderContractor
 # sys = TBone
 
 # =========================================================================
