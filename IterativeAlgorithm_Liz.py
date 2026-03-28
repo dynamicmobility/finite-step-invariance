@@ -5,7 +5,7 @@ from ellipsoids import Ellipsoid, plot_projection, sample_from
 from radialBasisFunctions import sample_uniform_levelset, RBF
 from probabilistic_bounds import binomial_tail
 import ExpanderContractor
-import TBone
+import DogBone
 import jax
 import jax.numpy as jnp
 print("Using backend: ", jax.default_backend())

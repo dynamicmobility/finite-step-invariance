@@ -9,6 +9,7 @@ import jax
 from datetime import datetime
 import jax.numpy as jnp
 from probabilistic_bounds import binomial_tail
+import pandas as pd
 print("Using backend: ", jax.default_backend())
 
 
@@ -25,8 +26,8 @@ EPS_THRESHOLD = 0.03 # It doesn't really converge any lower than this
 # Model Setup
 # =========================================================================
 
-sys = CompassGaitWalker
-# sys = ExpanderContractor
+# sys = CompassGaitWalker
+sys = ExpanderContractor
 # sys = TBone
 
 # =========================================================================
@@ -41,6 +42,9 @@ print(f"Initial ellipsoid volume: {E0.volume():.6e}")
 
 # --- Line 3: initialise A, b, E -----------------------------------------
 Ei = E0
+
+log_eps = []
+log_vol = []
 
 # =========================================================================
 # REPEAT ... UNTIL  V = ∅
@@ -69,6 +73,10 @@ for iteration in range(MAX_ITER):
     epsilon = binomial_tail(n_esc, N)
     print(f"Iter {iteration:3d}: epsilon={epsilon}")
     # do active verification so we can use as a termination criteria
+
+    log_eps.append(epsilon)
+    log_vol.append(Ei.volume())
+
     if epsilon < EPS_THRESHOLD:
         print(f"\nConverged after {iteration} iterations,  with epsilon = {epsilon}")
         break
@@ -149,6 +157,11 @@ print(f"\nVerification ({N_verify} samples): {n_esc} escaped "
       f"({100*n_esc/N_verify:.2f}%)")
 print("PASS" if n_esc == 0 else "FAIL — ellipsoid not verified invariant")
 
+## Save data to CSVs
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+df = pd.DataFrame({'epsilon': log_eps, 'volume': log_vol})
+df.to_csv(f"convergence_log_{timestamp}.csv", index=False)
+
 # =========================================================================
 # Plot final ellipsoid projections (all three 2-D coordinate pairs)
 # =========================================================================
@@ -169,7 +182,6 @@ for ax, (i, j) in zip(axes, pairs):
     ax.legend(fontsize=7)
 fig.suptitle('Final invariant ellipsoid $\\mathcal{E}^*$ (blue) vs initial $\\mathcal{E}_0$ (orange)')
 plt.tight_layout()
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 with open(f"Ellipsoid_Invariant_{timestamp}.txt", 'w') as f:
     f.write(f"Q =\n{E_star.Q}\n\nc =\n{E_star.c.T}\n")
 plt.savefig(f"Ellipsoid_Invariant_{timestamp}.png")
