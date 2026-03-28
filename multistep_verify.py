@@ -12,7 +12,7 @@ from probabilistic_bounds import binomial_tail
 
 N_VERIFY = 2000
 N_STEPS = 10
-filename = 'Ellipsoid_Invariant_20260324_191555.txt'
+filename = 'Ellipsoid_Invariant_20260324_191555.txt' # eps = 0.03
 
 def parse_ellipsoid_file(filepath):
     """Parse ellipsoid file and return Ellipsoid object."""
