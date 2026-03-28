@@ -94,7 +94,7 @@ def plot_filled_ellipse(Q, c, ax, fill_alpha=1.0,
             linestyle=outline_style, linewidth=1.5, zorder=outline_zorder)
 
 
-def _autolim(ax, margin=0.3, bottom_extra=0.2):
+def _autolim(ax, margin=0.6, bottom_extra=0.4):
     """margin: uniform padding; bottom_extra: additional fraction added to the
     bottom only, pushing the ellipse upward to leave room for the legend."""
     ax.autoscale(enable=True, tight=True)
@@ -110,7 +110,7 @@ def _autolim(ax, margin=0.3, bottom_extra=0.2):
 # Warm-up iterations then illustration iteration with small N
 # =========================================================================
 np.random.seed(3)
-N = 200
+N = 50
 
 E0 = sys.initial_guess()
 Ei = E0
@@ -151,7 +151,7 @@ arrow_idx = rng.choice(N, size=min(N_ARROW, N), replace=False)
 PANEL_TITLES = [
     '(a) Step 1: Sample points from $\\mathcal{E}_i$',
     '(b) Step 2: Apply Poincaré map $\\mathcal{P}$',
-    '(c) Step 3: Partition by return point membership',
+    '(c) Step 3: Partition Preimages',
     '(d) Step 4: Fit MVEE to $\\mathcal{U}$',
 ]
 
@@ -232,25 +232,25 @@ def draw_panel(ax, idx, show_title=True):
 
 
 def draw_panels(axes, show_titles=True):
-    for i, ax in enumerate(axes):
+    for i, ax in enumerate(axes.flatten()):
         draw_panel(ax, i, show_title=show_titles)
 
 
 # =========================================================================
-# Combined figure (with titles)
+# Combined figure (with titles) — 2×2 grid
 # =========================================================================
-fig, axes = plt.subplots(1, 4, figsize=(10.0, 2.8))
+fig, axes = plt.subplots(2, 2, figsize=(4.25, 4.0))
 draw_panels(axes, show_titles=True)
 fig.tight_layout()
 fig.savefig('fig_steps.pdf', bbox_inches='tight')
 # print("Saved fig_steps.pdf")
 
 # =========================================================================
-# Individual panels — each exactly (8.5/4) inches wide, no title
+# Individual panels — each exactly (4.25/4) inches wide, no title
 # =========================================================================
-TARGET_W = 10.0 / 4   # 2.125 inches — width of each individual panel
+TARGET_W = 4.25 / 4
 for i, name in enumerate(['a', 'b', 'c', 'd']):
-    fig_i, ax_i = plt.subplots(1, 1, figsize=(TARGET_W, 2.8))
+    fig_i, ax_i = plt.subplots(1, 1, figsize=(TARGET_W, 2.0))
     draw_panel(ax_i, i, show_title=False)
     fig_i.tight_layout()
     fig_i.savefig(f'fig_step_{name}.pdf', bbox_inches='tight')
