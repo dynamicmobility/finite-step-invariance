@@ -28,7 +28,7 @@ EPS_THRESHOLD = 0.03 # It doesn't really converge any lower than this
 
 sys = CompassGaitWalker
 # sys = ExpanderContractor
-# sys = TBone
+# sys = DogBone
 
 # =========================================================================
 # Main Algorithm – Identify Invariant Ellipsoid
@@ -43,8 +43,10 @@ print(f"Initial ellipsoid volume: {E0.volume():.6e}")
 # --- Line 3: initialise A, b, E -----------------------------------------
 Ei = E0
 
-log_eps = []
-log_vol = []
+log_eps  = []
+log_vol  = []
+log_Q    = []   # flattened Q matrix at each iteration
+log_c    = []   # flattened c vector at each iteration
 
 # =========================================================================
 # REPEAT ... UNTIL  V = ∅
@@ -76,6 +78,8 @@ for iteration in range(MAX_ITER):
 
     log_eps.append(epsilon)
     log_vol.append(Ei.volume())
+    log_Q.append(Ei.Q.flatten())
+    log_c.append(Ei.c.flatten())
 
     if epsilon < EPS_THRESHOLD:
         print(f"\nConverged after {iteration} iterations,  with epsilon = {epsilon}")
@@ -158,18 +162,30 @@ print(f"\nVerification ({N_verify} samples): {n_esc} escaped "
 print("PASS" if n_esc == 0 else "FAIL — ellipsoid not verified invariant")
 
 ## Save data to CSVs
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
+sysname    = sys.__name__
 df = pd.DataFrame({'epsilon': log_eps, 'volume': log_vol})
-df.to_csv(f"convergence_log_{timestamp}.csv", index=False)
+df.to_csv(f"{sysname}_convergence_log_{timestamp}.csv", index=False)
+
+d      = sys.d
+q_cols = [f'q{i}{j}' for i in range(d) for j in range(d)]
+c_cols = [f'c{k}'    for k in range(d)]
+df_ellipsoids = pd.DataFrame(
+    np.hstack([np.array(log_Q), np.array(log_c)]),
+    columns=q_cols + c_cols,
+)
+df_ellipsoids.index.name = 'iteration'
+df_ellipsoids.to_csv(f"{sysname}_ellipsoid_log_{timestamp}.csv")
 
 # =========================================================================
-# Plot final ellipsoid projections (all three 2-D coordinate pairs)
+# Plot final ellipsoid projections (all 2-D coordinate pairs)
 # =========================================================================
-# TODO: Update this to work with either 2D or 3D
-labels = ['$x_1$', '$x_2$', '$x_3$']
-pairs  = [(0, 1), (0, 2), (1, 2)]
+labels = [f'$x_{k+1}$' for k in range(sys.d)]
+pairs  = [(i, j) for i in range(sys.d) for j in range(i + 1, sys.d)]
 
-fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+fig, axes = plt.subplots(1, len(pairs), figsize=(4 * len(pairs), 4))
+if len(pairs) == 1:
+    axes = [axes]
 for ax, (i, j) in zip(axes, pairs):
     plot_projection(E_star.Q, E_star.c.flatten(), 1, ax,
                     diml=i, dimh=j, color='blue', label='$\\mathcal{E}^*$')
