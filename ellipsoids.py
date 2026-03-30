@@ -1,10 +1,10 @@
 import numpy as np 
 import cvxpy as cp
+import scipy
 from scipy.special import gamma
 from scipy.optimize import minimize, NonlinearConstraint
 from numpy.linalg import det, inv
-import scipy
-
+from scipy.linalg import null_space, sqrtm
 
 # Defines ellipsoid as (x-c)T Q (x-c) <= 1
 class Ellipsoid:
@@ -17,11 +17,13 @@ class Ellipsoid:
         self.r = 0
 
     # Given a dataset of xs and norm degree, fit ellipse to dataset
-    # Ellipse in form ||Ax - b|| < 1
+    # Ellipse is fit in form ||Ax - b|| < 1 but saved in form Q, c
     def fit_p_ball(self, xs, normp, verbose=False):
         xs = np.array(xs).T
         n = np.shape(xs)[0]
         m = np.shape(xs)[1]
+
+        assert n == self.c.shape[0]
 
         A = cp.Variable((n, n), symmetric=True)
         b = cp.Variable((n,1))
@@ -52,6 +54,7 @@ class Ellipsoid:
             print("A* =", A.value)
             print("b* =", b.value)
             print("volume proxy:", np.log(np.linalg.det(A.value)))
+            print(problem.status)
             if problem.status not in ["optimal", "optimal_inaccurate"]:
                 print("Optimization failed with status:", problem.status)
             else:
@@ -78,9 +81,14 @@ class Ellipsoid:
         r = (b.T @ A @ Q_inv @ A.T @ b) - (b.T @ b) + 1
         return Q, c, r
 
+    def mahalanobis_distance(self, p):
+        return np.diag((p-self.c).T@self.Q@(p-self.c))
 
     # Checks if a point p is contained in this ellipse
-    # TODO: this should be done in the A,b representation instead of Q,c representation
+    def contains_point(self, p):
+        return self.mahalanobis_distance(p) <= 1
+
+    # Checks if a point p is contained in this ellipse
     def contains_point(self, p):
         return np.diag((p-self.c).T@self.Q@(p-self.c) <= 1)
     
@@ -183,6 +191,14 @@ class Ellipsoid:
 # ------------------------------------------------------------------
 # Plotting ellipsoids
 
+def sample_from(e: Ellipsoid, N_pts: int) -> np.ndarray:
+    # Sample Normal Distribution 
+    d = len(e.c)
+    pts = np.random.standard_normal((d, N_pts))
+    r = np.random.uniform(0, 1, size=(N_pts,)) ** (1/d) # The denominator of the power is also the dimension
+    pts = r*pts/np.linalg.vector_norm(pts, axis=0)
+    return np.linalg.inv(sqrtm(e.Q))@pts + e.c
+    
 
 def convert_A_b_to_Q_c_r(A, b):
     """
@@ -195,6 +211,22 @@ def convert_A_b_to_Q_c_r(A, b):
     c = Q_inv @ A.T @ b
     r = (b.T @ A @ Q_inv @ A.T @ b) - (b.T @ b) + 1
     return Q, c, r
+
+def plot_projection(Q, c, r, ax, diml = 0, dimh = 1, alpha=0.75, color='green', **kwargs):
+        P = Q / r
+        n = P.shape[0]
+        if n == 2:
+            plot_ellipse(P, c, r, ax, alpha, color, **kwargs)
+            return
+        ind = [k for k in range(n) if k not in [diml, dimh]]
+        Phat = P[ind, :]
+        N = null_space(Phat)
+        M = N[(diml, dimh), :]  # Since M is guaranteed 2x2,
+        Minv = (1 / (M[0, 0] * M[1, 1] - M[0, 1] * M[1, 0])) * np.array(
+            [[M[1, 1], -M[0, 1]], [-M[1, 0], M[0, 0]]]
+        )
+        P = Minv.T @ N.T @ P @ N @ Minv
+        plot_ellipse(P, c[(diml, dimh),], r, ax, alpha, color, **kwargs)
 
 def project_ellipsoid_to_2d(A, b, diml, dimh):
     """
@@ -209,14 +241,16 @@ def project_ellipsoid_to_2d(A, b, diml, dimh):
 
 def plot_ellipse(Q, c, r, ax, alpha=0.75, color='green', **kwargs):
     """
-    Plot ellipse defined by (x-c)^T Q (x-c) <= r in 2D
+    Plot 2D ellipse defined by (x-c)^T Q (x-c) <= r
     """
-    eigvals, eigvecs = np.linalg.eigh(Q)
+    Q_2d = Q
+    c_2d = c
+    eigvals, eigvecs = np.linalg.eigh(Q_2d)
     theta = np.linspace(0, 2 * np.pi, 200)
     circle = np.stack([np.cos(theta), np.sin(theta)])
     # Scale the ellipse by sqrt(r)
     ellipse = eigvecs @ np.diag(np.sqrt(r) / np.sqrt(eigvals)) @ circle
-    ellipse = ellipse.T + c
+    ellipse = ellipse.T + c_2d
     ax.plot(ellipse[:, 0], ellipse[:, 1], **kwargs, color=color, alpha=alpha)
 
     return ax

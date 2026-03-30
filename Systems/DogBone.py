@@ -1,0 +1,80 @@
+import numpy as np
+from ellipsoids import Ellipsoid
+from radialBasisFunctions import RBF
+
+d = 2
+
+# T-bone: two circle centers and radii
+c1 = np.array([-0.6, 0.0])
+c2 = np.array([ 0.6, 0.0])
+R  = 0.6      # radius of each lobe
+PUSH = 1.3    # expansion factor outside the t-bone
+
+def _in_dogbone(x):
+    """Boolean mask: True if x is inside either lobe. x: (N, 2)"""
+    in_c1 = np.sum((x - c1)**2, axis=1) <= R**2
+    in_c2 = np.sum((x - c2)**2, axis=1) <= R**2
+    return in_c1 | in_c2
+
+def P_batch(x):
+    """
+    Poincare return map:
+    - Inside t-bone: contract toward nearest center
+    - Outside t-bone: push away from origin by PUSH factor
+    x: (N, 2) -> (N, 2)
+    """
+    x      = np.atleast_2d(x)
+    out    = x.copy()
+    inside = _in_dogbone(x)
+
+    # Inside: contract toward nearest lobe center
+    d1         = np.sum((x - c1)**2, axis=1)
+    d2         = np.sum((x - c2)**2, axis=1)
+    nearest    = np.where(d1[:, None] < d2[:, None], c1, c2)   # (N, 2)
+    out[inside] = nearest[inside] + 0.5 * (x[inside] - nearest[inside])
+
+    # Outside: push away from origin
+    out[~inside] *= PUSH
+
+    return out
+
+def initial_guess():
+    """Single RBF centered at origin as initial guess."""
+    E0   = Ellipsoid(d)
+    pts  = np.random.uniform(low=-1.5, high=1.5, size=(200, d))
+    E0.fit_p_ball(pts, 2)
+    return E0
+
+def initial_guess_rbf():
+    pts = np.random.uniform(low=-2, high=2, size=(100, d))
+    E0 = RBF(d, np.log(0.25))
+    E0 = E0.fit_rbf(pts, 1)
+    return E0
+
+if __name__ == '__main__':
+    # Tests
+    x = np.array([0.5, 0.0])
+    print("Single point:", P_batch(x))
+
+    xs     = np.random.uniform(low=-2, high=2, size=(10, d))
+    Xprime = P_batch(xs)
+    assert Xprime.shape == xs.shape, "Shape mismatch"
+    print("Batch shape OK:", Xprime.shape)
+
+    # Check contraction inside t-bone
+    x_in = np.array([[-0.5, 0.0], [0.5, 0.0]])
+    x_out = P_batch(x_in)
+    d_before = np.sqrt(np.sum((x_in  - np.array([c1, c2]))**2, axis=1))
+    d_after  = np.sqrt(np.sum((x_out - np.array([c1, c2]))**2, axis=1))
+    assert np.all(d_after < d_before), "Should contract inside t-bone"
+    print("Contraction check OK")
+
+    # Check expansion outside t-bone
+    x_out_dogbone = np.array([[1.5, 1.5], [-1.5, -1.5]])
+    x_pushed    = P_batch(x_out_dogbone)
+    assert np.all(np.sum(x_pushed**2, axis=1) > np.sum(x_out_dogbone**2, axis=1)), \
+        "Should expand outside t-bone"
+    print("Expansion check OK")
+
+    initial_guess()
+    print("Initial guess OK")
