@@ -8,7 +8,11 @@ Usage:
     python PlotAlgorithmSets.py ExpanderContractor_ellipsoid_log_20260328_143201.csv
 """
 
+import os
 import sys
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ROOT)
+sys.path.insert(0, os.path.join(_ROOT, 'Systems'))
 import argparse
 import numpy as np
 import pandas as pd
@@ -22,8 +26,6 @@ from ellipsoids import plot_projection
 FONT_FS = 10
 TICK_FS = 10
 LEG_FS  = 10
-
-#CompassGaitWalker_ellipsoid_log_20260328_211440_sets
 
 mpl.rcParams.update({
     'font.family':     'serif',
@@ -106,7 +108,8 @@ cbar.set_ticks(np.linspace(1, n_iters - 1, min(n_iters - 1, 6), dtype=int))
 
 fig.tight_layout()
 
-stem = args.csv.replace('.csv', '')
-fig.savefig(f'{stem}_sets.pdf', bbox_inches='tight')
-fig.savefig(f'{stem}_sets.png', dpi=300, bbox_inches='tight')
-print(f"Saved {stem}_sets.pdf  ({n_iters} ellipsoids, d={d}, {n_pairs} projection(s))")
+FIGURES_DIR = os.path.join(_ROOT, 'Figures')
+os.makedirs(FIGURES_DIR, exist_ok=True)
+stem = os.path.basename(args.csv).replace('.csv', '')
+fig.savefig(os.path.join(FIGURES_DIR, f'{stem}_sets.pdf'), bbox_inches='tight')
+print(f"Saved Figures/{stem}_sets.pdf  ({n_iters} ellipsoids, d={d}, {n_pairs} projection(s))")

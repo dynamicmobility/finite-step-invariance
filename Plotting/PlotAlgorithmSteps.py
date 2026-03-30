@@ -21,10 +21,14 @@ Four panels (left to right):
   (d) Step 4: Fit MVEE to U
 
 Outputs:
-  fig_steps.pdf / fig_steps.png     — combined 4-panel figure (with titles)
-  fig_step_a.pdf … fig_step_d.pdf  — individual panels (no titles)
+  fig_steps.pdf             -combined 4-panel figure (with titles)
 """
 
+import os
+import sys
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ROOT)
+sys.path.insert(0, os.path.join(_ROOT, 'Systems'))
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -61,15 +65,16 @@ mpl.rcParams.update({
 # =========================================================================
 # Colors
 # =========================================================================
+_plasma = mpl.colormaps['plasma']
 C = {
-    'Xi':         '#AAAAAA',   # neutral grey   — raw samples (Step 1 / Step 2)
-    'V':          '#BB2222',   # dark red       — escaped return points  (panel b)
-    'W':          '#1155AA',   # dark blue      — contained return points (panel b)
-    'Z':          '#EE8833',   # orange         — preimages of V (panel c)
-    'U':          '#44AA44',   # green          — preimages of W (panel c/d)
-    'arrow':      '#000000',   # black          — mapping arrows
-    'Ei_outline': '#000000',   # black          — ellipsoid outline
-    'Ei_prev':    '#888888',   # mid grey       — dotted previous ellipsoid
+    'Xi':         '#AAAAAA',        # neutral grey  — raw samples
+    'W':          _plasma(0.1),     # dark purple   — contained return points
+    'V':          _plasma(0.85),    # bright orange — escaped return points
+    'U':          _plasma(0.4),     # magenta-pink  — preimages of W
+    'Z':          _plasma(0.65),    # orange-red    — preimages of V
+    'arrow':      '#000000',        # black         — mapping arrows
+    'Ei_outline': '#000000',        # black         — ellipsoid outline
+    'Ei_prev':    '#888888',        # mid grey      — dotted previous ellipsoid
 }
 PT        = 18      # scatter point size
 ALF       = 0.75    # scatter alpha
@@ -173,7 +178,7 @@ def draw_panel(ax, idx, show_title=True):
             Patch(facecolor='white', edgecolor=C['Ei_outline'],
                   label='$\\mathcal{E}_i$'),
             Line2D([0], [0], marker='o', color='w', markerfacecolor=C['Xi'],
-                   markersize=6, label='$\\{\\mathbf{x}_i\\}$'),
+                   markersize=6, label='$\\{x_i\\}$'),
         ], fontsize=LEG_FS, loc='lower center', framealpha=0.9, ncol=2,
            handlelength=1.0, handletextpad=0.4, columnspacing=0.8)
 
@@ -193,9 +198,9 @@ def draw_panel(ax, idx, show_title=True):
         _autolim(ax)
         ax.legend(handles=[
             Line2D([0], [0], marker='o', color='w', markerfacecolor=C['W'],
-                   markersize=6, label='$\\mathcal{W}:= \{\\mathcal{P}(\\mathbf{x}_i) \\mid \mathcal{P}(\\mathbf{x}_i) \\in \\mathcal{E}_i\}$'),
+                   markersize=6, label='$\\mathcal{W}:= \{\\mathcal{P}(x_i) \\mid \mathcal{P}(x_i) \\in \\mathcal{E}_i\}$'),
             Line2D([0], [0], marker='o', color='w', markerfacecolor=C['V'],
-                   markersize=6, label='$\\mathcal{V}:= \{\\mathcal{P}(\\mathbf{x}_i) \\mid \mathcal{P}(\\mathbf{x}_i) \\notin \\mathcal{E}_i\}$'),
+                   markersize=6, label='$\\mathcal{V}:= \{\\mathcal{P}(x_i) \\mid \mathcal{P}(x_i) \\notin \\mathcal{E}_i\}$'),
         ], fontsize=LEG_FS, loc='lower center', framealpha=0.9, ncol=1,
            handlelength=1.0, handletextpad=0.4, columnspacing=0.8)
 
@@ -206,9 +211,9 @@ def draw_panel(ax, idx, show_title=True):
         _autolim(ax)
         ax.legend(handles=[
             Line2D([0], [0], marker='o', color='w', markerfacecolor=C['U'],
-                   markersize=6, label='$\\mathcal{U}:= \{\\mathbf{x}_i \\mid \\mathcal{P}(\\mathbf{x}_i) \\in \\mathcal{W}\}$'),
+                   markersize=6, label='$\\mathcal{U}:= \{x_i \\mid \\mathcal{P}(x_i) \\in \\mathcal{W}\}$'),
             Line2D([0], [0], marker='o', color='w', markerfacecolor=C['Z'],
-                   markersize=6, label='$\\mathcal{Z}:= \{\\mathbf{x}_i \\mid \\mathcal{P}(\\mathbf{x}_i) \\in \\mathcal{V}\}$'),
+                   markersize=6, label='$\\mathcal{Z}:= \{x_i \\mid \\mathcal{P}(x_i) \\in \\mathcal{V}\}$'),
         ], fontsize=LEG_FS, loc='lower center', framealpha=0.9, ncol=1,
            handlelength=1.0, handletextpad=0.4, columnspacing=0.8)
 
@@ -239,22 +244,11 @@ def draw_panels(axes, show_titles=True):
 # =========================================================================
 # Combined figure (with titles) — 2×2 grid
 # =========================================================================
+FIGURES_DIR = os.path.join(_ROOT, 'Figures')
+os.makedirs(FIGURES_DIR, exist_ok=True)
+
 fig, axes = plt.subplots(2, 2, figsize=(4.25, 4.0))
 draw_panels(axes, show_titles=True)
 fig.tight_layout()
-fig.savefig('fig_steps.pdf', bbox_inches='tight')
-# print("Saved fig_steps.pdf")
-
-# =========================================================================
-# Individual panels — each exactly (4.25/4) inches wide, no title
-# =========================================================================
-TARGET_W = 4.25 / 4
-for i, name in enumerate(['a', 'b', 'c', 'd']):
-    fig_i, ax_i = plt.subplots(1, 1, figsize=(TARGET_W, 2.0))
-    draw_panel(ax_i, i, show_title=False)
-    fig_i.tight_layout()
-    fig_i.savefig(f'fig_step_{name}.pdf', bbox_inches='tight')
-    # plt.close(fig_i)
-    print(f"Saved fig_step_{name}.pdf")
-
-# plt.show()
+fig.savefig(os.path.join(FIGURES_DIR, 'fig_steps.pdf'), bbox_inches='tight')
+print("Saved fig_steps.pdf")

@@ -1,3 +1,5 @@
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Systems'))
 import numpy as np
 from scipy.linalg import solve_discrete_lyapunov, sqrtm
 from matplotlib import pyplot as plt

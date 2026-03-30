@@ -219,4 +219,4 @@ __marimo__/
 *.png
 
 .vscode
-*.csv
+.DS_Store

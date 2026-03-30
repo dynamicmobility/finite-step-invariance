@@ -1,7 +1,9 @@
+import sys, os
 import numpy as np
 from scipy.linalg import solve_discrete_lyapunov, sqrtm
 from matplotlib import pyplot as plt
 from ellipsoids import Ellipsoid, plot_projection, sample_from
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Systems'))
 import CompassGaitWalker
 import ExpanderContractor
 import DogBone
@@ -26,8 +28,8 @@ EPS_THRESHOLD = 0.03 # It doesn't really converge any lower than this
 # Model Setup
 # =========================================================================
 
-sys = CompassGaitWalker
-# sys = ExpanderContractor
+# sys = CompassGaitWalker
+sys = ExpanderContractor
 # sys = DogBone
 
 # =========================================================================
