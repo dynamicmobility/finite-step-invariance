@@ -19,9 +19,9 @@ from ellipsoids import plot_projection
 # =========================================================================
 # Paper style  (matches PlotAlgorithmSteps.py)
 # =========================================================================
-FONT_FS = 7
-TICK_FS = 7
-LEG_FS  = 8
+FONT_FS = 10
+TICK_FS = 10
+LEG_FS  = 10
 
 #CompassGaitWalker_ellipsoid_log_20260328_211440_sets
 
