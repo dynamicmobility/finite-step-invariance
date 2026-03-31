@@ -192,6 +192,8 @@ leg = fig_leg.legend(handles=legend_handles, loc='center',
                      ncol=len(legend_handles), fontsize=LEG_FS,
                      framealpha=0.9, handlelength=1.2,
                      handletextpad=0.4, columnspacing=1.2)
+leg.get_frame().set_linewidth(2.0)
+leg.get_frame().set_edgecolor('grey')
 fig_leg.canvas.draw()
 bbox = leg.get_window_extent().transformed(fig_leg.dpi_scale_trans.inverted())
 fig_leg.savefig(os.path.join(FIGURES_DIR, 'invariant_legend.pdf'),
