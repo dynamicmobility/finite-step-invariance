@@ -38,6 +38,8 @@ mpl.rcParams.update({
     'lines.linewidth': 1.5,
     'axes.linewidth':  0.8,
     'figure.dpi':      150,
+    'pdf.fonttype': 42,
+    'ps.fonttype': 42
 })
 
 # =========================================================================
@@ -59,7 +61,15 @@ c_cols = [f'c{k}'    for k in range(d)]
 Qs = df[q_cols].values.reshape(-1, d, d)   # (n_iters, d, d)
 cs = df[c_cols].values                      # (n_iters, d)
 n_iters = len(Qs)
+indices = np.arange(n_iters)  # for colour-coding iterations
 
+max_N_iter = 10 # maximum number of iterates to plot (including E0)
+if n_iters > max_N_iter:
+    indices = np.linspace(0, n_iters - 1, max_N_iter, dtype=int)
+    Qs = Qs[indices]
+    cs = cs[indices]
+    new_n_iters = len(Qs)
+    
 # =========================================================================
 # Plot
 # =========================================================================
@@ -67,7 +77,7 @@ pairs   = [(i, j) for i in range(d) for j in range(i + 1, d)]
 n_pairs = len(pairs)
 
 cmap = mpl.colormaps['plasma']
-norm = mpl.colors.Normalize(vmin=1, vmax=n_iters - 1)
+norm = mpl.colors.Normalize(vmin=indices[1], vmax=indices[-1])
 
 fig, axes = plt.subplots(1, n_pairs, figsize=(3.0 * n_pairs, 3.0))
 if n_pairs == 1:
@@ -82,7 +92,7 @@ for ax, (di, dj) in zip(axes, pairs):
                     alpha=0.9, label='$\\mathcal{E}_0$', zorder=2)
 
     # Subsequent iterates — plasma colormap
-    for i, (Q, c) in enumerate(zip(Qs[1:], cs[1:]), start=1):
+    for i, (Q, c) in zip(indices[1:], zip(Qs[1:], cs[1:])):
         plot_projection(Q, c, 1, ax, diml=di, dimh=dj,
                         color=cmap(norm(i)), linewidth=0.8, alpha=0.85, zorder=3)
 
@@ -104,7 +114,7 @@ sm   = mpl.cm.ScalarMappable(cmap=cmap, norm=norm)  # noqa: deprecated in 3.8+
 cbar = fig.colorbar(sm, ax=axes[-1], shrink=0.85, pad=0.03)
 cbar.set_label('Iteration', fontsize=FONT_FS)
 cbar.ax.tick_params(labelsize=TICK_FS)
-cbar.set_ticks(np.linspace(1, n_iters - 1, min(n_iters - 1, 6), dtype=int))
+cbar.set_ticks(indices[1:])
 
 fig.tight_layout()
 

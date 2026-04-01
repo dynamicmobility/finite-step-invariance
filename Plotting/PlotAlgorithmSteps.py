@@ -60,6 +60,8 @@ mpl.rcParams.update({
     'axes.linewidth':   0.8,
     'figure.dpi':       150,
     # 'text.usetex':    True,
+    'pdf.fonttype': 42,
+    'ps.fonttype': 42
 })
 
 # =========================================================================
