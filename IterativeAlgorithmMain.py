@@ -22,15 +22,15 @@ N        = 2000   # samples per iteration
 MAX_ITER = 200
 PLOT     = False  # Shows the plot every iteration
 RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast
-EPS_THRESHOLD = 0.03 # It doesn't really converge any lower than this
+EPS_THRESHOLD = 0.07 # User-defined accuracy threshold for convergence
 
 # =========================================================================
 # Model Setup
 # =========================================================================
 
 # sys = CompassGaitWalker
-sys = ExpanderContractor
-# sys = DogBone
+# sys = ExpanderContractor
+sys = DogBone
 
 # =========================================================================
 # Main Algorithm – Identify Invariant Ellipsoid

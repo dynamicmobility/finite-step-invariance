@@ -1,10 +1,13 @@
+import sys, os
 import numpy as np
 from scipy.linalg import solve_discrete_lyapunov, sqrtm
 from matplotlib import pyplot as plt
 from ellipsoids import Ellipsoid, plot_projection, sample_from
 from radialBasisFunctions import sample_uniform_levelset, RBF
 from probabilistic_bounds import binomial_tail
-import ExpanderContractor
+from datetime import datetime
+import pandas as pd
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Systems'))
 import DogBone
 import jax
 import jax.numpy as jnp
@@ -18,12 +21,13 @@ N        = 2000   # samples per iteration
 MAX_ITER = 200
 PLOT     = False  # Shows the plot every iteration
 RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast
+EPS_THRESHOLD = 0.07 # User-defined accuracy threshold for convergence
 
 # =========================================================================
 # Model Setup
 # =========================================================================
 
-sys = ExpanderContractor
+sys = DogBone
 
 # =========================================================================
 # Main Algorithm – Identify Invariant Ellipsoid
@@ -64,8 +68,8 @@ for iteration in range(MAX_ITER):
     epsilon = binomial_tail(n_esc, N)
     print(f"Iter {iteration:3d}: epsilon={epsilon}")
     # do active verification so we can use as a termination criteria
-    if epsilon < 0.05:
-        print(f"\nConverged — V = ∅  after {iteration} iterations,  with epsilon = {epsilon}")
+    if epsilon < EPS_THRESHOLD:
+        print(f"\nConverged after {iteration} iterations,  with epsilon = {epsilon}")
         break
 
     # fit MVEE to W (NOT UNIONED WITH U)
@@ -119,6 +123,21 @@ else:
 E_star = Ei
 print(f"\nFinal rbf  centers =\n{E_star.centers_opt}")
 print(f"Final rbf  widths =\n{E_star.widths_opt}")
+
+# =========================================================================
+# Save final RBF to CSV
+# =========================================================================
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+sysname   = sys.__name__
+d         = sys.d
+c_cols    = [f'center_{k}' for k in range(d)]
+df_rbf = pd.DataFrame(E_star.centers_opt, columns=c_cols)
+df_rbf['width'] = E_star.widths_opt
+df_rbf['thresh'] = E_star.thresh
+df_rbf.index.name = 'ball'
+csv_path = f"{sysname}_rbf_log_{timestamp}.csv"
+df_rbf.to_csv(csv_path)
+print(f"Saved {csv_path}")
 
 # =========================================================================
 # Verification: confirm P(x) ∈ E*  for  N_verify  samples from  E*

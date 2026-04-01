@@ -1,6 +1,8 @@
 # Define Log Files
 expander_contractor='20260329_160146'
 compass_gait_walker='20260328_211440'
+dogbone='20260331_215510'
+dogbone_rbf='20260331_213241'
 
 # Make Hero Figure Plot (Fig 1)
 python Plotting/PlotAlgorithmSteps.py 
@@ -12,3 +14,6 @@ python Plotting/PlotAlgorithmSets.py Data/ExpanderContractor_ellipsoid_log_${exp
 # Make Invariant Set Plots (Fig 2c, 2d)
 python Plotting/PlotInvariantSet.py Data/CompassGaitWalker_ellipsoid_log_${compass_gait_walker}.csv
 python Plotting/PlotInvariantSet.py Data/ExpanderContractor_ellipsoid_log_${expander_contractor}.csv
+
+# Make the RBF Plot
+python Plotting/PlotDogBoneComparison.py Data/DogBone_ellipsoid_log_${dogbone}.csv Data/DogBone_rbf_log_${dogbone_rbf}.csv
