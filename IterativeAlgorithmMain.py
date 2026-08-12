@@ -3,10 +3,9 @@ import numpy as np
 from scipy.linalg import solve_discrete_lyapunov, sqrtm
 from matplotlib import pyplot as plt
 from ellipsoids import Ellipsoid, plot_projection, sample_from
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Systems'))
-import CompassGaitWalker
-import ExpanderContractor
-import DogBone
+import Systems.CompassGaitWalker as CompassGaitWalker
+import Systems.ExpanderContractor as ExpanderContractor
+import Systems.DogBone as DogBone
 import jax
 from datetime import datetime
 import jax.numpy as jnp
@@ -22,15 +21,16 @@ N        = 2000   # samples per iteration
 MAX_ITER = 200
 PLOT     = False  # Shows the plot every iteration
 RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast
-EPS_THRESHOLD = 0.07 # User-defined accuracy threshold for convergence
+EPS_THRESHOLD = 0.02 # User-defined accuracy threshold for convergence
+SAVE_DATA = False # Save convergence data to CSVs
 
 # =========================================================================
 # Model Setup
 # =========================================================================
 
 # sys = CompassGaitWalker
-# sys = ExpanderContractor
-sys = DogBone
+sys = ExpanderContractor
+# sys = DogBone
 
 # =========================================================================
 # Main Algorithm – Identify Invariant Ellipsoid
@@ -166,18 +166,6 @@ print("PASS" if n_esc == 0 else "FAIL — ellipsoid not verified invariant")
 ## Save data to CSVs
 timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
 sysname    = sys.__name__
-df = pd.DataFrame({'epsilon': log_eps, 'volume': log_vol})
-df.to_csv(f"{sysname}_convergence_log_{timestamp}.csv", index=False)
-
-d      = sys.d
-q_cols = [f'q{i}{j}' for i in range(d) for j in range(d)]
-c_cols = [f'c{k}'    for k in range(d)]
-df_ellipsoids = pd.DataFrame(
-    np.hstack([np.array(log_Q), np.array(log_c)]),
-    columns=q_cols + c_cols,
-)
-df_ellipsoids.index.name = 'iteration'
-df_ellipsoids.to_csv(f"{sysname}_ellipsoid_log_{timestamp}.csv")
 
 # =========================================================================
 # Plot final ellipsoid projections (all 2-D coordinate pairs)
@@ -193,6 +181,7 @@ for ax, (i, j) in zip(axes, pairs):
                     diml=i, dimh=j, color='blue', label='$\\mathcal{E}^*$')
     plot_projection(E0.Q,    E0.c.flatten(),    1, ax,
                     diml=i, dimh=j, color='orange', linestyle='--', label='$\\mathcal{E}_0$')
+    sys.plot_true(ax, diml=i, dimh=j, label="True")
     ax.scatter(pts_v[:, i], pts_v[:, j], s=2, c='blue',  alpha=0.2, label='samples')
     ax.scatter(Ppts_v[:, i], Ppts_v[:, j], s=2, c='green', alpha=0.2, label='returns')
     ax.set_xlabel(labels[i])
@@ -200,7 +189,21 @@ for ax, (i, j) in zip(axes, pairs):
     ax.legend(fontsize=7)
 fig.suptitle('Final invariant ellipsoid $\\mathcal{E}^*$ (blue) vs initial $\\mathcal{E}_0$ (orange)')
 plt.tight_layout()
-with open(f"Ellipsoid_Invariant_{timestamp}.txt", 'w') as f:
-    f.write(f"Q =\n{E_star.Q}\n\nc =\n{E_star.c.T}\n")
-plt.savefig(f"Ellipsoid_Invariant_{timestamp}.png")
+# Save data to CSVs and other logs
+if(SAVE_DATA):
+    df = pd.DataFrame({'epsilon': log_eps, 'volume': log_vol})
+
+    d      = sys.d
+    q_cols = [f'q{i}{j}' for i in range(d) for j in range(d)]
+    c_cols = [f'c{k}'    for k in range(d)]
+    df_ellipsoids = pd.DataFrame(
+        np.hstack([np.array(log_Q), np.array(log_c)]),
+        columns=q_cols + c_cols,
+    )
+    df_ellipsoids.index.name = 'iteration'
+    df.to_csv(f"{sysname}_convergence_log_{timestamp}.csv", index=False)
+    df_ellipsoids.to_csv(f"{sysname}_ellipsoid_log_{timestamp}.csv")
+    with open(f"Ellipsoid_Invariant_{timestamp}.txt", 'w') as f:
+        f.write(f"Q =\n{E_star.Q}\n\nc =\n{E_star.c.T}\n")
+    plt.savefig(f"Ellipsoid_Invariant_{timestamp}.png")
 plt.show()

@@ -11,9 +11,6 @@ Usage:
 
 import sys
 import os
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, _ROOT)
-sys.path.insert(0, os.path.join(_ROOT, 'Systems'))
 
 import argparse
 import numpy as np
@@ -24,7 +21,7 @@ import matplotlib.ticker
 
 from ellipsoids import Ellipsoid, plot_projection
 from radialBasisFunctions import RBF
-import DogBone
+from Systems import DogBone
 
 # =========================================================================
 # Paper style

@@ -1,5 +1,5 @@
 import numpy as np
-from ellipsoids import Ellipsoid
+from ellipsoids import Ellipsoid, plot_projection
 from radialBasisFunctions import RBF
 
 d = 2
@@ -10,11 +10,20 @@ c2 = np.array([ 0.6, 0.0])
 R  = 0.6      # radius of each lobe
 PUSH = 1.3    # expansion factor outside the t-bone
 
+# 1.01 converges in 66 iterations
+# 1.1 converges in 18 iterations
+# 1.3 converges in 6 iterations
+
 def _in_dogbone(x):
     """Boolean mask: True if x is inside either lobe. x: (N, 2)"""
     in_c1 = np.sum((x - c1)**2, axis=1) <= R**2
     in_c2 = np.sum((x - c2)**2, axis=1) <= R**2
     return in_c1 | in_c2
+
+def _in_dynamics(x, nearest):
+    A = np.array([[0, -1], [1, 0]])
+    # A = np.array([[0.5, 0], [0, 0.5]])
+    return (A@(x-nearest).T).T + nearest
 
 def P_batch(x):
     """
@@ -31,7 +40,9 @@ def P_batch(x):
     d1         = np.sum((x - c1)**2, axis=1)
     d2         = np.sum((x - c2)**2, axis=1)
     nearest    = np.where(d1[:, None] < d2[:, None], c1, c2)   # (N, 2)
-    out[inside] = nearest[inside] + 0.5 * (x[inside] - nearest[inside])
+    # out[inside] = x[inside]  # Points inside do not move
+    # out[inside] = x[inside] + 0.5 * (nearest[inside] - x[inside])
+    out[inside] = _in_dynamics(x[inside], nearest[inside])
 
     # Outside: push away from origin
     out[~inside] *= PUSH
@@ -41,7 +52,7 @@ def P_batch(x):
 def initial_guess():
     """Single RBF centered at origin as initial guess."""
     E0   = Ellipsoid(d)
-    pts  = np.random.uniform(low=-1.5, high=1.5, size=(200, d))
+    pts  = np.random.uniform(low=-0.6, high=0.6, size=(200, d)) + np.array([0.6, 0])
     E0.fit_p_ball(pts, 2)
     return E0
 
@@ -50,6 +61,11 @@ def initial_guess_rbf():
     E0 = RBF(d, np.log(0.25))
     E0 = E0.fit_rbf(pts, 1)
     return E0
+
+def plot_true(ax, diml=0, dimh=1, **kwargs):
+    """Plot the true ROA (union of two discs) on the given axes."""
+    plot_projection(np.eye(2), c1, R, ax, diml, dimh, alpha=0.75, color='green', **kwargs)
+    plot_projection(np.eye(2), c2, R, ax, diml, dimh, alpha=0.75, color='green', **kwargs)
 
 if __name__ == '__main__':
     # Tests

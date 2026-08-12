@@ -1,21 +1,21 @@
 import numpy as np
-from ellipsoids import Ellipsoid
+from ellipsoids import Ellipsoid, plot_projection
 from radialBasisFunctions import RBF
 from matplotlib import pyplot as plt
 
 d = 2
 v = np.array([[1], [1]])
-A = np.array([[2, 1], [1, 1]])
+Q = np.array([[2, 1], [1, 1]])
 
-assert np.all(np.linalg.eigvals(A) > 0)
+assert np.all(np.linalg.eigvals(Q) > 0)
 
-# This is the A-norm with offset v 
-def _h(x, A, v):
-    return np.diag((x-v).T@A@(x-v))
+# This is the Q-norm with offset v 
+def _h(x, Q, v):
+    return np.diag((x-v).T@Q@(x-v))
 
-# This is a toy step-to-step map (contracts within the A-norm unit ball but expands otherwise)
+# This is a toy step-to-step map (contracts within the Q-norm unit ball but expands otherwise)
 def P_batch(x):
-    return ((x.T-v)*_h(x.T, A, v) + v).T
+    return ((x.T-v)*_h(x.T, Q, v) + v).T
 
 def initial_guess():
     pts = np.random.uniform(low=-2, high=2, size=(100, d))
@@ -29,6 +29,8 @@ def initial_guess_rbf():
     E0 = E0.fit_rbf(pts, 1)
     return E0
 
+def plot_true(ax, diml=0, dimh=1, **kwargs):
+    plot_projection(Q, v.flatten(), 1, ax, diml, dimh, alpha=0.75, color='green', **kwargs)
 
 if __name__ == '__main__':
     # Tests to make sure dimensions make sense
