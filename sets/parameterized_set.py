@@ -20,3 +20,11 @@ class ParameterizedSet(ABC):
     @abstractmethod
     def contains_points(self, pts: np.ndarray) -> np.ndarray:
         pass
+
+    @abstractmethod
+    def params(self):
+        pass
+
+    @abstractmethod
+    def load_from_row(self, row: np.ndarray):
+        pass

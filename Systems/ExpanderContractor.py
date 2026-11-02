@@ -5,7 +5,8 @@ from matplotlib import pyplot as plt
 
 d = 2
 v = np.array([[1], [1]])
-Q = np.array([[2, 1], [1, 1]])
+Q = np.array([[2, 1],
+              [1, 1]])
 
 assert np.all(np.linalg.eigvals(Q) > 0)
 

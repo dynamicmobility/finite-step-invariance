@@ -39,18 +39,19 @@ sys = ExpanderContractor
 # =========================================================================
 
 def main():
-    # TODO: Instantiate sys and E0 based on 
+    # TODO: Instantiate sys and E0 based on kwargs
     E0 = sys.initial_guess()
     Ei = E0
 
+    threshold = EPS_THRESHOLD
+
     log_eps  = []
     log_vol  = []
-    log_Q    = []   # flattened Q matrix at each iteration
-    log_c    = []   # flattened c vector at each iteration
+    log_theta    = []   # collects all parameters
     epsilon_min = binomial_tail(0, N)
-    if(EPS_THRESHOLD < epsilon_min):
+    if(threshold < epsilon_min):
         warnings.warn(f"Threshold must be greater than {epsilon_min}, setting to epsilon_min")
-        EPS_THRESHOLD = epsilon_min
+        threshold = epsilon_min
 
     for iteration in range(MAX_ITER):
 
@@ -80,10 +81,9 @@ def main():
 
         log_eps.append(epsilon)
         log_vol.append(Ei.volume())
-        log_Q.append(Ei.Q.flatten())
-        log_c.append(Ei.c.flatten())
+        log_theta.append(np.asarray(Ei.params()).flatten().copy())
 
-        if epsilon <= EPS_THRESHOLD:
+        if epsilon <= threshold:
             print(f"\nConverged after {iteration} iterations,  with epsilon = {epsilon}")
             break
 
@@ -180,19 +180,15 @@ def main():
     if(SAVE_DATA):
         df = pd.DataFrame({'epsilon': log_eps, 'volume': log_vol})
 
-        d      = sys.d
-        q_cols = [f'q{i}{j}' for i in range(d) for j in range(d)]
-        c_cols = [f'c{k}'    for k in range(d)]
-        df_ellipsoids = pd.DataFrame(
-            np.hstack([np.array(log_Q), np.array(log_c)]),
-            columns=q_cols + c_cols,
-        )
-        df_ellipsoids.index.name = 'iteration'
-        df.to_csv(f"{sysname}_convergence_log_{timestamp}.csv", index=False)
-        df_ellipsoids.to_csv(f"{sysname}_ellipsoid_log_{timestamp}.csv")
-        with open(f"Ellipsoid_Invariant_{timestamp}.txt", 'w') as f:
-            f.write(f"Q =\n{E_star.Q}\n\nc =\n{E_star.c.T}\n")
-        plt.savefig(f"Ellipsoid_Invariant_{timestamp}.png")
+        set_type = type(E_star).__name__.lower()
+        df_params = pd.DataFrame(log_theta)
+        df_params.columns = [f'param_{k}' for k in range(df_params.shape[1])]
+        df_params.index.name = 'iteration'
+        df.to_csv(f"{sysname}_{set_type}_convergence_log_{timestamp}.csv", index=False)
+        df_params.to_csv(f"{sysname}_{set_type}_log_{timestamp}.csv")
+        with open(f"{sysname}_{set_type}_invariant_{timestamp}.txt", 'w') as f:
+            f.write(f"params =\n{E_star.params()}\n")
+        plt.savefig(f"{sysname}_{set_type}_invariant_{timestamp}.png")
     plt.show()
 
 

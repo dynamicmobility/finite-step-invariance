@@ -18,6 +18,34 @@ class RBF(ParameterizedSet):
         """Fit row-wise data, using the current ball count by default."""
         return self.fit_rbf(data, self.num_nballs if num_balls is None else num_balls)
 
+    def params(self) -> np.ndarray:
+        """Return flattened centers followed by widths, as used by rbf_eval."""
+        if self.centers_opt is None or self.widths_opt is None:
+            raise ValueError("Fit the RBF before accessing parameters")
+        return np.concatenate([self.centers_opt.flatten(), self.widths_opt.flatten()])
+
+    def load_from_row(self, row: np.ndarray):
+        """Restore centers and widths from a 1D parameter row without its index.
+
+        Infer the ball count using this set's dimension. The threshold remains
+        the value supplied to the constructor, since params() does not log it.
+        """
+        row = np.asarray(row, dtype=float)
+        if row.ndim != 1 or row.size == 0 or row.size % (self.dimension + 1):
+            raise ValueError("row must be a 1D array with num_balls * (dimension + 1) parameters")
+        if not np.all(np.isfinite(row)):
+            raise ValueError("row must contain only finite parameters")
+        num_balls = row.size // (self.dimension + 1)
+        split = num_balls * self.dimension
+        centers = row[:split].reshape(num_balls, self.dimension).copy()
+        widths = row[split:].copy()
+        if np.any(widths == 0):
+            raise ValueError("RBF widths must be nonzero")
+        self.centers_opt = centers
+        self.widths_opt = widths
+        self.num_nballs = num_balls
+        return self
+
     def sample_from(self, N: int) -> np.ndarray:
         """Sample the level set within the existing [-4, 4]^dimension box."""
         if self.centers_opt is None or self.widths_opt is None:
