@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import jax
 from numpy.typing import ArrayLike
 from matplotlib.collections import LineCollection
-from ellipsoids import Ellipsoid
+from sets.ellipsoid import Ellipsoid
 from diffrax import diffeqsolve, ODETerm, Dopri8, Event
 from equinox import filter_jit
 import optimistix as optx

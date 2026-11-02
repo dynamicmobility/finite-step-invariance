@@ -1,6 +1,6 @@
 import numpy as np
-from ellipsoids import Ellipsoid, plot_projection
-from radialBasisFunctions import RBF
+from sets.ellipsoid import Ellipsoid, plot_projection
+from sets.radialBasisFunction import RBF
 from matplotlib import pyplot as plt
 
 d = 2
@@ -20,7 +20,7 @@ def P_batch(x):
 def initial_guess():
     pts = np.random.uniform(low=-2, high=2, size=(100, d))
     E0 = Ellipsoid(d)
-    E0.fit_p_ball(pts, 2)
+    E0.fit(pts, 2)
     return E0
 
 def initial_guess_rbf():

@@ -3,14 +3,33 @@ import matplotlib.pyplot as plt
 from scipy.optimize import NonlinearConstraint
 import scipy
 from sklearn.cluster import KMeans
+from sets.parameterized_set import ParameterizedSet
 
-class RBF:
+class RBF(ParameterizedSet):
     def __init__(self, dims, thresh):
+        super().__init__(dims)
         self.dimensions = dims
         self.num_nballs = 1
         self.centers_opt = None
         self.widths_opt = None
         self.thresh = thresh
+
+    def fit(self, data, num_balls=None):
+        """Fit row-wise data, using the current ball count by default."""
+        return self.fit_rbf(data, self.num_nballs if num_balls is None else num_balls)
+
+    def sample_from(self, N: int) -> np.ndarray:
+        """Sample the level set within the existing [-4, 4]^dimension box."""
+        if self.centers_opt is None or self.widths_opt is None:
+            raise ValueError("Fit the RBF before sampling")
+        if N < 0:
+            raise ValueError("N must be nonnegative")
+        samples = []
+        while len(samples) < N:
+            point = np.random.uniform(-4, 4, size=(1, self.dimension))
+            if self.contains_points(point)[0]:
+                samples.append(point[0])
+        return np.asarray(samples).reshape(N, self.dimension)
 
     def rbf_eval(self, nballs, z, dimensions, p=None, centers=None, widths=None):
         if centers is None and p is not None:
@@ -74,13 +93,12 @@ class RBF:
 
     def rbf_solve(self, nballs, thresh, data, dimensions, centers_init=None):
         def rbf_badness(params, nballs, data, thresh):
-            centers = params[0:2*nballs].reshape((nballs,2))
-            widths = params[2*nballs:3*nballs]
+            centers = params[0:dimensions*nballs].reshape((nballs,dimensions))
+            widths = params[dimensions*nballs:(dimensions+1)*nballs]
             b = 0
             ndata = np.shape(data)[0]
             for data_idx in range(ndata):
-                x,y = data[data_idx,:]
-                z = np.vstack([x,y]).T
+                z = data[data_idx:data_idx + 1, :]
                 lev = self.rbf_eval(self.num_nballs, z, self.dimensions, centers=centers, widths=widths)
                 # heavily punish points near the boundary
                 point_badness = np.exp(-(lev - thresh))
@@ -119,7 +137,12 @@ class RBF:
 
         return self
 
-    def contains_point(self, points):
+    def contains_points(self, points: np.ndarray) -> np.ndarray:
+        points = np.asarray(points)
+        if points.ndim != 2 or points.shape[1] != self.dimension:
+            raise ValueError("points must have shape (N, dimension)")
+        if self.centers_opt is None or self.widths_opt is None:
+            raise ValueError("Fit the RBF before testing membership")
         bool_list = []
         for p in points:
             c = 0
@@ -129,32 +152,16 @@ class RBF:
                 c = 1e-15
             bool_list.append(np.log(c) >= self.thresh)
 
-        return np.array(bool_list)
+        return np.array(bool_list, dtype=bool)
 
-def sample_uniform_levelset(r : RBF, N : int):
-    d = len(r.centers_opt[0])
-    bounds = [(-4, 4)] * d
-    samples = []
+    def contains_point(self, points):
+        """Compatibility wrapper for row-wise points."""
+        return self.contains_points(points)
 
-    def rbf_val(x):
-        c = 0
-        for nc in range(np.shape(r.centers_opt)[0]):
-            c += (np.exp(-0.5 * np.linalg.norm(x - r.centers_opt[nc, :])**2 / r.widths_opt[nc]**2))
-        if c == 0:
-            c = 1e-15
-        return np.log(c)
-    
 
-    while len(samples) < N:
-        # Sample uniformly from bounding box
-        x = np.array([
-            np.random.uniform(bounds[j][0], bounds[j][1])
-            for j in range(d)
-        ])
-        if rbf_val(x) >= r.thresh:
-            samples.append(x)
-
-    return np.array(samples)
+def sample_uniform_levelset(r: RBF, N: int):
+    """Compatibility wrapper for RBF.sample_from."""
+    return r.sample_from(N)
 
 if __name__ == "__main__":
     from scipy.integrate import odeint

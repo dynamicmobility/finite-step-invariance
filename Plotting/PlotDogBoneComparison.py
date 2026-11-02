@@ -19,8 +19,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker
 
-from ellipsoids import Ellipsoid, plot_projection
-from radialBasisFunctions import RBF
+from sets.ellipsoid import Ellipsoid, plot_projection
+from sets.radialBasisFunction import RBF
 from Systems import DogBone
 
 # =========================================================================

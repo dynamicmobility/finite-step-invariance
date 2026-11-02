@@ -1,10 +1,10 @@
 import numpy as np
-from ellipsoids import Ellipsoid, plot_projection
-from radialBasisFunctions import RBF
+from sets.ellipsoid import Ellipsoid, plot_projection
+from sets.radialBasisFunction import RBF
 
 d = 2
 
-# T-bone: two circle centers and radii
+# Dogbone: two circle centers and radii
 c1 = np.array([-0.6, 0.0])
 c2 = np.array([ 0.6, 0.0])
 R  = 0.6      # radius of each lobe
