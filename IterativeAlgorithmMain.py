@@ -1,19 +1,15 @@
-import sys, os
+import argparse
+import importlib
 import numpy as np
-from scipy.linalg import solve_discrete_lyapunov, sqrtm
 from matplotlib import pyplot as plt
 from sets.radialBasisFunction import RBF
 from sets.ellipsoid import Ellipsoid, plot_projection
-import Systems.CompassGaitWalker as CompassGaitWalker
-import Systems.ExpanderContractor as ExpanderContractor
-import Systems.DogBone as DogBone
 import jax
 from datetime import datetime
-import jax.numpy as jnp
 from probabilistic_bounds import binomial_tail
 import pandas as pd
 import warnings
-print("Using backend: ", jax.default_backend())
+
 
 
 # =========================================================================
@@ -30,20 +26,54 @@ SAVE_DATA = False # Save convergence data to CSVs
 # Model Setup
 # =========================================================================
 
-# sys = CompassGaitWalker
-sys = ExpanderContractor
-# sys = DogBone
+SYSTEMS = {
+    'cec': 'Systems.ExpanderContractor',
+    'nec': 'Systems.DogBone',
+    'cgw': 'Systems.CompassGaitWalker',
+}
 
-# =========================================================================
-# Main Algorithm – Identify Invariant Ellipsoid
-# =========================================================================
 
-def main():
-    # TODO: Instantiate sys and E0 based on kwargs
-    E0 = sys.initial_guess()
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description="Identify a probabilistically invariant set.")
+    parser.add_argument('--N', '--n', type=int, default=N,
+                        help='Samples per iteration (default: %(default)s)')
+    parser.add_argument('--eps-thresh', '--eps_thresh', type=float, default=EPS_THRESHOLD,
+                        help='Convergence threshold in [0, 1] (default: %(default)s)')
+    parser.add_argument('--set-type', '--set_type', type=str.lower,
+                        choices=['ell', 'rbf'], default='ellipsoid')
+    parser.add_argument('--system', type=str.lower, choices=SYSTEMS,
+                        default='cec')
+    args = parser.parse_args(argv)
+    if args.N <= 0:
+        parser.error('N must be positive')
+    if not 0 <= args.eps_thresh <= 1:
+        parser.error('eps_thresh must be in [0, 1]')
+    return args
+
+
+def plot_set(set_, ax, diml=0, dimh=1, color='blue', label=None, **kwargs):
+    if isinstance(set_, Ellipsoid):
+        plot_projection(set_.Q, set_.c.flatten(), 1, ax, diml=diml, dimh=dimh,
+                        color=color, label=label, **kwargs)
+    else:
+        set_.plot(ax, diml=diml, dimh=dimh, color=color, label=label, **kwargs)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    sys = importlib.import_module(SYSTEMS[args.system])
+    print("Using backend: ", jax.default_backend())
+    N = args.N
+    threshold = args.eps_thresh
+    if args.set_type == 'ellipsoid':
+        E0 = sys.initial_guess()
+    elif hasattr(sys, 'initial_guess_rbf'):
+        E0 = sys.initial_guess_rbf()
+    else:
+        # Use the system's existing initial region to initialize an RBF.
+        E0 = RBF(sys.d, np.log(0.25))
+        E0.fit(sys.initial_guess().sample_from(N))
     Ei = E0
-
-    threshold = EPS_THRESHOLD
 
     log_eps  = []
     log_vol  = []
@@ -71,7 +101,7 @@ def main():
         n_tot = len(W) + len(V)
         n_esc    = int(np.sum(~in_E))
         print(f"Iter {iteration:3d}: |V|={len(V):4d}/{n_tot}  "
-            f"({100*len(V)/n_tot:.1f}% escaped)  vol={Ei.volume():.4e}")
+            f"({100*len(V)/n_tot:.1f}% escaped)  vol={Ei.volume() if isinstance(Ei, Ellipsoid) else np.nan:.4e}")
 
         # --- Lines 14-19: update ellipsoid if any points escaped --------------
         epsilon = binomial_tail(n_esc, N)
@@ -80,7 +110,7 @@ def main():
         # do active verification so we can use as a termination criteria
 
         log_eps.append(epsilon)
-        log_vol.append(Ei.volume())
+        log_vol.append(Ei.volume() if isinstance(Ei, Ellipsoid) else np.nan)
         log_theta.append(np.asarray(Ei.params()).flatten().copy())
 
         if epsilon <= threshold:
@@ -90,20 +120,22 @@ def main():
         # fit MVEE to W (NOT UNIONED WITH U)
         WU   = np.vstack((W,U))
         VZ   = np.vstack((V,Z))
-        Ei   = Ellipsoid(sys.d)
+        candidate = (Ellipsoid(sys.d) if args.set_type == 'ellipsoid'
+                     else RBF(sys.d, E0.thresh))
         try:
-            Ei.fit(U, 2) # Fits to preimage of returning points
+            candidate.fit(U) # Fits to preimage of returning points
         except np.linalg.LinAlgError:
             print("W not well-conditioned, resampling")
             continue
+        Ei = candidate
         # Ei.fit(WU, 2)
         if PLOT:
             fig, ax = plt.subplots()
-            Ei.plot(ax, color='blue',   label='$\\mathcal{E}_i$')
+            plot_set(Ei, ax, color='blue',   label='$\\mathcal{E}_i$')
 
             # fig, ax = plt.subplots()
             # Blue goes to Green, Red goes to Yellow
-            E0.plot(ax, color='orange', label='$\\mathcal{E}_0$')
+            plot_set(E0, ax, color='orange', label='$\\mathcal{E}_0$')
             ax.scatter(U[:, 0], U[:, 1], c='blue',  s=8, label='$\\mathcal{U}$')
             ax.scatter(W[:, 0], W[:, 1], c='green', s=8, marker='x', label='$\\mathcal{W}$')
             ax.scatter(Z[:, 0], Z[:, 1], c='red',   s=8, label='$\\mathcal{Z}$')
@@ -135,9 +167,9 @@ def main():
     # RETURN  E* = { x : ||A x - b|| <= 1 }
     # =========================================================================
     E_star = Ei
-    print(f"\nFinal ellipsoid  Q =\n{E_star.Q}")
-    print(f"Final ellipsoid  c =\n{E_star.c.T}")
-    print(f"Volume: {E_star.volume():.6e}")
+    print(f"\nFinal {args.set_type} params =\n{E_star.params()}")
+    if isinstance(E_star, Ellipsoid):
+        print(f"Volume: {E_star.volume():.6e}")
 
     # =========================================================================
     # Verification: confirm P(x) ∈ E*  for  N_verify  samples from  E*
@@ -148,7 +180,7 @@ def main():
     n_esc    = int(np.sum(~E_star.contains_points(Ppts_v)))
     print(f"\nVerification ({N_verify} samples): {n_esc} escaped "
         f"({100*n_esc/N_verify:.2f}%)")
-    print("PASS" if n_esc == 0 else "FAIL — ellipsoid not verified invariant")
+    print("PASS" if n_esc == 0 else "FAIL — set not verified invariant")
 
     ## Save data to CSVs
     timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -164,17 +196,18 @@ def main():
     if len(pairs) == 1:
         axes = [axes]
     for ax, (i, j) in zip(axes, pairs):
-        plot_projection(E_star.Q, E_star.c.flatten(), 1, ax,
+        plot_set(E_star, ax,
                         diml=i, dimh=j, color='blue', label='$\\mathcal{E}^*$')
-        plot_projection(E0.Q,    E0.c.flatten(),    1, ax,
+        plot_set(E0, ax,
                         diml=i, dimh=j, color='orange', linestyle='--', label='$\\mathcal{E}_0$')
-        sys.plot_true(ax, diml=i, dimh=j, label="True")
+        if hasattr(sys, "plot_true"):
+            sys.plot_true(ax, diml=i, dimh=j, label="True")
         ax.scatter(pts_v[:, i], pts_v[:, j], s=2, c='blue',  alpha=0.2, label='samples')
         ax.scatter(Ppts_v[:, i], Ppts_v[:, j], s=2, c='green', alpha=0.2, label='returns')
         ax.set_xlabel(labels[i])
         ax.set_ylabel(labels[j])
         ax.legend(fontsize=7)
-    fig.suptitle('Final invariant ellipsoid $\\mathcal{E}^*$ (blue) vs initial $\\mathcal{E}_0$ (orange)')
+    fig.suptitle(f'Final invariant {args.set_type} (blue) vs initial set (orange)')
     plt.tight_layout()
     # Save data to CSVs and other logs
     if(SAVE_DATA):

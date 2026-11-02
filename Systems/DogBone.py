@@ -53,7 +53,7 @@ def initial_guess():
     """Single RBF centered at origin as initial guess."""
     E0   = Ellipsoid(d)
     pts  = np.random.uniform(low=-0.6, high=0.6, size=(200, d)) + np.array([0.6, 0])
-    E0.fit_p_ball(pts, 2)
+    E0.fit(pts, 2)
     return E0
 
 def initial_guess_rbf():

@@ -28,3 +28,7 @@ class ParameterizedSet(ABC):
     @abstractmethod
     def load_from_row(self, row: np.ndarray):
         pass
+
+    @abstractmethod
+    def plot(self, ax, diml = 0, dimh = 1, alpha = 1.0, color = 'green', **kwargs):
+        pass

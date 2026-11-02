@@ -85,12 +85,12 @@ for iteration in range(MAX_ITER):
     if PLOT:
         fig, ax = plt.subplots()
         ax.scatter(U[:,0],U[:,1],c='blue')
-        Ei.plot_2D_rbf(-8,8,-8,8,Ei.centers_opt,Ei.widths_opt, colors=['cyan'])
+        Ei.plot_2D_rbf(ax, -8,8,-8,8,Ei.centers_opt,Ei.widths_opt, colors=['cyan'])
         # plot_projection(Ei.Q, Ei.c.flatten(), 1, ax, color='blue',   label='$\\mathcal{E}_i$')
 
     if PLOT:
         # fig, ax = plt.subplots()
-        E0.plot_2D_rbf(-8,8,-8,8,E0.centers_opt,E0.widths_opt, colors=['orange'])
+        E0.plot_2D_rbf(ax, -8,8,-8,8,E0.centers_opt,E0.widths_opt, colors=['orange'])
         ax.scatter(U[:, 0], U[:, 1], c='blue',  s=8, label='$\\mathcal{U}$')
         ax.scatter(W[:, 0], W[:, 1], c='green', s=8, marker='x', label='$\\mathcal{W}$')
         ax.scatter(Z[:, 0], Z[:, 1], c='red',   s=8, label='$\\mathcal{Z}$')
@@ -154,8 +154,8 @@ print(f"Saved {csv_path}")
 # Plot final ellipsoid projections (all three 2-D coordinate pairs)
 # =========================================================================
 # fig, axes = plt.subplots(1, 1, figsize=(12, 4))
-# E_star.plot_2D_rbf(-8,8,-8,8,E_star.centers_opt,E_star.widths_opt, colors=['blue'])
-# E0.plot_2D_rbf(-8,8,-8,8,E0.centers_opt,E0.widths_opt, colors=['orange'])
+# E_star.plot_2D_rbf(ax, -8,8,-8,8,E_star.centers_opt,E_star.widths_opt, colors=['blue'])
+# E0.plot_2D_rbf(ax, -8,8,-8,8,E0.centers_opt,E0.widths_opt, colors=['orange'])
 # ax.scatter(pts_v[:, 0], pts_v[:, 1], s=2, c='blue',  alpha=0.2, label='samples')
 # ax.scatter(Ppts_v[:, 0], Ppts_v[:, 1], s=2, c='green', alpha=0.2, label='returns')
 # ax.legend(fontsize=7)

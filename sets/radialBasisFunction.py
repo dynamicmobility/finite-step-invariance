@@ -59,6 +59,26 @@ class RBF(ParameterizedSet):
                 samples.append(point[0])
         return np.asarray(samples).reshape(N, self.dimension)
 
+    def plot(self, ax, diml = 0, dimh = 1, alpha = 1.0, color = 'green', **kwargs):
+        """Delegate to the existing 2D or 3D plotter using its fixed coordinates."""
+        if self.centers_opt is None or self.widths_opt is None:
+            raise ValueError("Fit the RBF before plotting")
+        dimensions = self.centers_opt.shape[1]
+        if dimensions not in (2, 3):
+            raise ValueError("RBF plotting supports only 2D or 3D centers")
+        n_lines, n_collections = len(ax.lines), len(ax.collections)
+        if dimensions == 2:
+            self.plot_2D_rbf(ax, -4, 4, -4, 4, self.centers_opt, self.widths_opt,
+                             colors=[color])
+        else:
+            self.plot_3D_rbf(ax, -4, 4, -4, 4, self.centers_opt, self.widths_opt,
+                             data=self.centers_opt, colors=[color])
+        for line in ax.lines[n_lines:]:
+            line.set(alpha=alpha, **kwargs)
+        for collection in ax.collections[n_collections:]:
+            collection.set_alpha(alpha)
+        return ax
+
     def rbf_eval(self, nballs, z, dimensions, p=None, centers=None, widths=None):
         if centers is None and p is not None:
             centers = p[0:dimensions*nballs].reshape((nballs,dimensions))
@@ -84,7 +104,7 @@ class RBF(ParameterizedSet):
         z = np.array([z])
         return z
 
-    def plot_2D_rbf(self, xmin, xmax, ymin, ymax, centers, widths, colors=['black']):
+    def plot_2D_rbf(self, ax, xmin, xmax, ymin, ymax, centers, widths, colors=['black']):
         xgrid = np.linspace(xmin, xmax,100)
         ygrid = np.linspace(ymin, ymax,100)
         nx = np.size(xgrid)
@@ -97,11 +117,11 @@ class RBF(ParameterizedSet):
                 y = Y[x_idx, y_idx]
                 z = np.vstack([x,y]).T
                 Z[x_idx, y_idx] = self.rbf_eval(self.num_nballs, z, self.dimensions, centers=centers, widths=widths)
-        plt.contour(X, Y, Z, levels=[self.thresh], colors=colors)
-        plt.plot(centers[:,0], centers[:,1], color=colors[0], marker='o', markerfacecolor='None', markersize=10, linestyle='None')
+        ax.contour(X, Y, Z, levels=[self.thresh], colors=colors)
+        ax.plot(centers[:,0], centers[:,1], color=colors[0], marker='o', markerfacecolor='None', markersize=10, linestyle='None')
 
 
-    def plot_3D_rbf(self, xmin, xmax, ymin, ymax, centers, widths, data, colors=['black']):
+    def plot_3D_rbf(self, ax, xmin, xmax, ymin, ymax, centers, widths, data, colors=['black']):
         xgrid = np.linspace(xmin, xmax,100)
         ygrid = np.linspace(ymin, ymax,100)
         nx = np.size(xgrid)
@@ -112,12 +132,12 @@ class RBF(ParameterizedSet):
             for y_idx in range(ny):
                 x = X[x_idx, y_idx]
                 y = Y[x_idx, y_idx]
-                [xopt, fopt, it, funclls, warnflg] =  scipy.optimize.fmin((lambda z : -(self.rbf_eval(self.num_nballs, self.rbf_stack(z, x, y), self.dimensions, centers=centers, widths=widths))), [np.mean(data[:][1])], full_output=True)
+                [xopt, fopt, it, funclls, warnflg] =  scipy.optimize.fmin((lambda z : -(self.rbf_eval(self.num_nballs, self.rbf_stack(z, x, y), self.dimensions, centers=centers, widths=widths))), [np.mean(data[:, 1])], full_output=True, disp=False)
                 Z[x_idx, y_idx]  = np.float64(-fopt)
-        plt.contour(X, Y, Z, levels=[self.thresh])
-        plt.plot(centers[:,0], centers[:,2], colors=colors, marker='o', markerfacecolor='None', markersize=10, linestyle='None')
-        plt.xlabel('$x$')
-        plt.ylabel('$y$')
+        ax.contour(X, Y, Z, levels=[self.thresh], colors=colors)
+        ax.plot(centers[:,0], centers[:,2], color=colors[0], marker='o', markerfacecolor='None', markersize=10, linestyle='None')
+        ax.set_xlabel('$x$')
+        ax.set_ylabel('$y$')
 
     def rbf_solve(self, nballs, thresh, data, dimensions, centers_init=None):
         def rbf_badness(params, nballs, data, thresh):
@@ -221,8 +241,9 @@ if __name__ == "__main__":
 
     r = RBF(2, np.log(0.25))
     r.fit_rbf(data, 2)
-    plt.plot(data[:,0],data[:,1],'b.')
-    r.plot_2D_rbf(-8,8,-8,8,r.centers_opt,r.widths_opt)
+    fig, ax = plt.subplots()
+    ax.plot(data[:,0],data[:,1],'b.')
+    r.plot_2D_rbf(ax, -8,8,-8,8,r.centers_opt,r.widths_opt)
     plt.show()
 
 

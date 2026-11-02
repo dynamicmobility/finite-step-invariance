@@ -136,7 +136,7 @@ def initial_guess(strategy="Contraction"):
     E0 = Ellipsoid(3)
     if strategy == "Uniform":
         pts_0 = np.random.uniform([-0.1, -1, -0.3], [0.1, 1, 0.3], (2000,3))
-        E0.fit_p_ball(pts_0, 2)
+        E0.fit(pts_0, 2)
 
     elif strategy == "Contraction":
         import cvxpy as cp

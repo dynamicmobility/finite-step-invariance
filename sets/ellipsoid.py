@@ -37,6 +37,9 @@ class Ellipsoid(ParameterizedSet):
         centered = pts - self.c.reshape(-1)
         return np.einsum("ni,ij,nj->n", centered, self.Q, centered) <= 1
 
+    def plot(self, ax, diml = 0, dimh = 1, alpha = 1.0, color = 'green', **kwargs):
+        plot_projection(self.Q, self.c, 1.0, ax, diml, dimh, color, **kwargs)
+
     def params(self) -> np.ndarray:
         return np.concat([self.Q.flatten(), self.c.flatten()])
 
@@ -215,8 +218,6 @@ class Ellipsoid(ParameterizedSet):
         volume = ((np.pi ** (n / 2)) / gamma(n / 2 + 1)) / np.sqrt(det(self.Q))
         return volume
 
-    def plot(self, ax, diml = 0, dimh = 1, alpha = 1.0, color = 'green', **kwargs):
-        plot_projection(self.Q, self.c, 1.0, ax, diml, dimh, color, **kwargs)
 
     
 
@@ -240,17 +241,6 @@ def plot_projection(Q, c, r, ax, diml = 0, dimh = 1, alpha=0.75, color='green', 
         )
         P = Minv.T @ N.T @ P @ N @ Minv
         plot_ellipse(P, c[(diml, dimh),], r, ax, alpha, color, **kwargs)
-
-def project_ellipsoid_to_2d(A, b, diml, dimh):
-    """
-    Project ellipsoid ||A x - b|| <= 1 from nD to 2D.
-    Returns (Q_2d, c_2d, r)
-    """
-    indices = [diml, dimh]
-    Q, c, r = convert_A_b_to_Q_c_r(A, b)
-    Q_2d = Q[np.ix_(indices, indices)]
-    c_2d = c[indices]
-    return Q_2d, c_2d, r
 
 def plot_ellipse(Q, c, r, ax, alpha=0.75, color='green', **kwargs):
     """
