@@ -7,6 +7,7 @@ from sets.ellipsoid import Ellipsoid
 from diffrax import diffeqsolve, ODETerm, Dopri8, Event
 from equinox import filter_jit
 import optimistix as optx
+from typing import Literal
 
 # Dynamics taken from Hybrid Limit Cycles of Walking Robots 
 # Underactuated Robotics (https://underactuated.mit.edu/simple_legs.html) Also uses these dynamics but the coordinates are flipped
@@ -132,7 +133,9 @@ P_batch = jax.vmap(P_single, in_axes=0)   # (N,3) -> (N,3)
 J = jax.jacrev(P_single)(jnp.array([0., 0., 0.]))
 
 # Either choose from uniform distribution or guess Q from contraction metric "Contraction" or "Uniform"
-def initial_guess(strategy="Contraction"):
+def initial_guess(set_type: Literal['ell', 'rbf'], strategy="Contraction"):
+    if set_type == "rbf":
+        raise NotImplementedError()
     E0 = Ellipsoid(3)
     if strategy == "Uniform":
         pts_0 = np.random.uniform([-0.1, -1, -0.3], [0.1, 1, 0.3], (2000,3))

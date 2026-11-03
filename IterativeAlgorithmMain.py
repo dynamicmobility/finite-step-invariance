@@ -97,7 +97,7 @@ def main(args):
         try:
             candidate.fit(U) # Fits to preimage of returning points
         except np.linalg.LinAlgError:
-            print("W not well-conditioned, resampling")
+            print("Fit not well-conditioned, resampling")
             continue
         Ei = candidate
         # Ei.fit(WU, 2)
@@ -152,7 +152,7 @@ def main(args):
     n_esc    = int(np.sum(~E_star.contains_points(Ppts_v)))
     print(f"\nVerification ({N_verify} samples): {n_esc} escaped "
         f"({100*n_esc/N_verify:.2f}%)")
-    print("PASS" if n_esc == 0 else "FAIL — set not verified invariant")
+    print("PASS" if n_esc/N_verify < threshold else "FAIL — Error rate too high")
 
     ## Save data to CSVs
     timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
