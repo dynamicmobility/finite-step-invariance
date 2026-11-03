@@ -38,7 +38,9 @@ class Ellipsoid(ParameterizedSet):
         return np.einsum("ni,ij,nj->n", centered, self.Q, centered) <= 1
 
     def plot(self, ax, diml = 0, dimh = 1, alpha = 1.0, color = 'green', **kwargs):
-        plot_projection(self.Q, self.c, 1.0, ax, diml, dimh, color, **kwargs)
+        plot_projection(self.Q, self.c.flatten(), 1.0, ax,
+                        diml=diml, dimh=dimh, alpha=alpha, color=color, **kwargs)
+        return ax
 
     def params(self) -> np.ndarray:
         return np.concat([self.Q.flatten(), self.c.flatten()])

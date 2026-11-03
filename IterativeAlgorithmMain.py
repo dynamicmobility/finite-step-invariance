@@ -3,7 +3,7 @@ import importlib
 import numpy as np
 from matplotlib import pyplot as plt
 from sets.radialBasisFunction import RBF
-from sets.ellipsoid import Ellipsoid, plot_projection
+from sets.ellipsoid import Ellipsoid
 import jax
 from datetime import datetime
 from probabilistic_bounds import binomial_tail
@@ -33,46 +33,18 @@ SYSTEMS = {
 }
 
 
-def parse_args(argv=None):
-    parser = argparse.ArgumentParser(description="Identify a probabilistically invariant set.")
-    parser.add_argument('--N', '--n', type=int, default=N,
-                        help='Samples per iteration (default: %(default)s)')
-    parser.add_argument('--eps-thresh', '--eps_thresh', type=float, default=EPS_THRESHOLD,
-                        help='Convergence threshold in [0, 1] (default: %(default)s)')
-    parser.add_argument('--set-type', '--set_type', type=str.lower,
-                        choices=['ell', 'rbf'], default='ellipsoid')
-    parser.add_argument('--system', type=str.lower, choices=SYSTEMS,
-                        default='cec')
-    args = parser.parse_args(argv)
-    if args.N <= 0:
-        parser.error('N must be positive')
-    if not 0 <= args.eps_thresh <= 1:
-        parser.error('eps_thresh must be in [0, 1]')
-    return args
 
 
 def plot_set(set_, ax, diml=0, dimh=1, color='blue', label=None, **kwargs):
-    if isinstance(set_, Ellipsoid):
-        plot_projection(set_.Q, set_.c.flatten(), 1, ax, diml=diml, dimh=dimh,
-                        color=color, label=label, **kwargs)
-    else:
-        set_.plot(ax, diml=diml, dimh=dimh, color=color, label=label, **kwargs)
+    return set_.plot(ax, diml=diml, dimh=dimh, color=color, label=label, **kwargs)
 
 
-def main(argv=None):
-    args = parse_args(argv)
+def main(args):
     sys = importlib.import_module(SYSTEMS[args.system])
     print("Using backend: ", jax.default_backend())
     N = args.N
     threshold = args.eps_thresh
-    if args.set_type == 'ellipsoid':
-        E0 = sys.initial_guess()
-    elif hasattr(sys, 'initial_guess_rbf'):
-        E0 = sys.initial_guess_rbf()
-    else:
-        # Use the system's existing initial region to initialize an RBF.
-        E0 = RBF(sys.d, np.log(0.25))
-        E0.fit(sys.initial_guess().sample_from(N))
+    E0 = sys.initial_guess(args.set_type)
     Ei = E0
 
     log_eps  = []
@@ -101,7 +73,7 @@ def main(argv=None):
         n_tot = len(W) + len(V)
         n_esc    = int(np.sum(~in_E))
         print(f"Iter {iteration:3d}: |V|={len(V):4d}/{n_tot}  "
-            f"({100*len(V)/n_tot:.1f}% escaped)  vol={Ei.volume() if isinstance(Ei, Ellipsoid) else np.nan:.4e}")
+            f"({100*len(V)/n_tot:.1f}% escaped)  vol={Ei.volume()}")
 
         # --- Lines 14-19: update ellipsoid if any points escaped --------------
         epsilon = binomial_tail(n_esc, N)
@@ -120,8 +92,8 @@ def main(argv=None):
         # fit MVEE to W (NOT UNIONED WITH U)
         WU   = np.vstack((W,U))
         VZ   = np.vstack((V,Z))
-        candidate = (Ellipsoid(sys.d) if args.set_type == 'ellipsoid'
-                     else RBF(sys.d, E0.thresh))
+        candidate = (Ellipsoid(sys.d) if args.set_type == 'ell'
+                     else RBF(sys.d))
         try:
             candidate.fit(U) # Fits to preimage of returning points
         except np.linalg.LinAlgError:
@@ -226,4 +198,18 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description="Identify a probabilistically invariant set.")
+    parser.add_argument('--N', '--n', type=int, default=N,
+                        help='Samples per iteration (default: %(default)s)')
+    parser.add_argument('--eps-thresh', '--eps_thresh', type=float, default=EPS_THRESHOLD,
+                        help='Convergence threshold in [0, 1] (default: %(default)s)')
+    parser.add_argument('--set-type', '--set_type', type=str.lower,
+                        choices=['ell', 'rbf'], default='ell')
+    parser.add_argument('--system', type=str.lower, choices=SYSTEMS,
+                        default='cec')
+    args = parser.parse_args()
+    if args.N <= 0:
+        parser.error('N must be positive')
+    if not 0 <= args.eps_thresh <= 1:
+        parser.error('eps_thresh must be in [0, 1]')
+    main(args)

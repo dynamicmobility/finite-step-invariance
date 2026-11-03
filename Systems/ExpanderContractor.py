@@ -2,6 +2,7 @@ import numpy as np
 from sets.ellipsoid import Ellipsoid, plot_projection
 from sets.radialBasisFunction import RBF
 from matplotlib import pyplot as plt
+from typing import Literal
 
 d = 2
 v = np.array([[1], [1]])
@@ -18,10 +19,13 @@ def _h(x, Q, v):
 def P_batch(x):
     return ((x.T-v)*_h(x.T, Q, v) + v).T
 
-def initial_guess():
+def initial_guess(set_type: Literal['ell', 'rbf'], N = 100):
     pts = np.random.uniform(low=-2, high=2, size=(100, d))
-    E0 = Ellipsoid(d)
-    E0.fit(pts, 2)
+    if(set_type == 'ell'):
+        E0  = Ellipsoid(d)
+    elif(set_type == 'rbf'):
+        E0  = RBF(d, 2)
+    E0.fit(pts)
     return E0
 
 def initial_guess_rbf():

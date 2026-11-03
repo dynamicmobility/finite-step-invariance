@@ -6,15 +6,14 @@ from sklearn.cluster import KMeans
 from sets.parameterized_set import ParameterizedSet
 
 class RBF(ParameterizedSet):
-    def __init__(self, dims, thresh):
+    def __init__(self, dims, thresh = -1.386):
         super().__init__(dims)
-        self.dimensions = dims
         self.num_nballs = 1
         self.centers_opt = None
         self.widths_opt = None
         self.thresh = thresh
 
-    def fit(self, data, num_balls=None):
+    def fit(self, data, num_balls=2):
         """Fit row-wise data, using the current ball count by default."""
         return self.fit_rbf(data, self.num_nballs if num_balls is None else num_balls)
 
@@ -53,11 +52,13 @@ class RBF(ParameterizedSet):
         if N < 0:
             raise ValueError("N must be nonnegative")
         samples = []
-        while len(samples) < N:
-            point = np.random.uniform(-4, 4, size=(1, self.dimension))
-            if self.contains_points(point)[0]:
-                samples.append(point[0])
-        return np.asarray(samples).reshape(N, self.dimension)
+        n_samples = 0
+        while n_samples < N:
+            points = np.random.uniform(-4, 4, size=(N - n_samples, self.dimension))
+            accepted = points[self.contains_points(points), :]
+            samples.append(accepted)
+            n_samples += len(accepted)
+        return np.vstack(samples) if samples else np.empty((0, self.dimension))
 
     def plot(self, ax, diml = 0, dimh = 1, alpha = 1.0, color = 'green', **kwargs):
         """Delegate to the existing 2D or 3D plotter using its fixed coordinates."""
@@ -116,7 +117,7 @@ class RBF(ParameterizedSet):
                 x = X[x_idx, y_idx]
                 y = Y[x_idx, y_idx]
                 z = np.vstack([x,y]).T
-                Z[x_idx, y_idx] = self.rbf_eval(self.num_nballs, z, self.dimensions, centers=centers, widths=widths)
+                Z[x_idx, y_idx] = self.rbf_eval(self.num_nballs, z, self.dimension, centers=centers, widths=widths)
         ax.contour(X, Y, Z, levels=[self.thresh], colors=colors)
         ax.plot(centers[:,0], centers[:,1], color=colors[0], marker='o', markerfacecolor='None', markersize=10, linestyle='None')
 
@@ -132,7 +133,7 @@ class RBF(ParameterizedSet):
             for y_idx in range(ny):
                 x = X[x_idx, y_idx]
                 y = Y[x_idx, y_idx]
-                [xopt, fopt, it, funclls, warnflg] =  scipy.optimize.fmin((lambda z : -(self.rbf_eval(self.num_nballs, self.rbf_stack(z, x, y), self.dimensions, centers=centers, widths=widths))), [np.mean(data[:, 1])], full_output=True, disp=False)
+                [xopt, fopt, it, funclls, warnflg] =  scipy.optimize.fmin((lambda z : -(self.rbf_eval(self.num_nballs, self.rbf_stack(z, x, y), self.dimension, centers=centers, widths=widths))), [np.mean(data[:, 1])], full_output=True, disp=False)
                 Z[x_idx, y_idx]  = np.float64(-fopt)
         ax.contour(X, Y, Z, levels=[self.thresh], colors=colors)
         ax.plot(centers[:,0], centers[:,2], color=colors[0], marker='o', markerfacecolor='None', markersize=10, linestyle='None')
@@ -147,7 +148,7 @@ class RBF(ParameterizedSet):
             ndata = np.shape(data)[0]
             for data_idx in range(ndata):
                 z = data[data_idx:data_idx + 1, :]
-                lev = self.rbf_eval(self.num_nballs, z, self.dimensions, centers=centers, widths=widths)
+                lev = self.rbf_eval(self.num_nballs, z, self.dimension, centers=centers, widths=widths)
                 # heavily punish points near the boundary
                 point_badness = np.exp(-(lev - thresh))
                 b += point_badness
@@ -178,7 +179,7 @@ class RBF(ParameterizedSet):
         kmeans = KMeans(n_clusters=self.num_nballs, random_state=0).fit(data)
         centers_init = kmeans.cluster_centers_ 
 
-        centers_opt, widths_opt = self.rbf_solve(self.num_nballs, thresh, data, self.dimensions, centers_init=centers_init)
+        centers_opt, widths_opt = self.rbf_solve(self.num_nballs, thresh, data, self.dimension, centers_init=centers_init)
 
         self.centers_opt = centers_opt
         self.widths_opt = widths_opt
@@ -191,20 +192,20 @@ class RBF(ParameterizedSet):
             raise ValueError("points must have shape (N, dimension)")
         if self.centers_opt is None or self.widths_opt is None:
             raise ValueError("Fit the RBF before testing membership")
-        bool_list = []
-        for p in points:
-            c = 0
-            for nc in range(np.shape(self.centers_opt)[0]):
-                c += (np.exp(-0.5 * np.linalg.norm(p - self.centers_opt[nc, :])**2 / self.widths_opt[nc]**2))
-            if c == 0:
-                c = 1e-15
-            bool_list.append(np.log(c) >= self.thresh)
-
-        return np.array(bool_list, dtype=bool)
+        # Broadcast to (N, num_balls, dimension), then reduce over coordinates
+        # and balls to evaluate the Gaussian sum at every point.
+        offsets = points[:, None, :] - self.centers_opt[None, :, :]
+        distances_squared = np.sum(offsets ** 2, axis=2)
+        values = np.exp(-0.5 * distances_squared / self.widths_opt ** 2).sum(axis=1)
+        values = np.where(values == 0, 1e-15, values)
+        return np.log(values) >= self.thresh
 
     def contains_point(self, points):
         """Compatibility wrapper for row-wise points."""
         return self.contains_points(points)
+
+    def volume(self):
+        return np.sum(np.power(self.widths_opt, 2))
 
 
 def sample_uniform_levelset(r: RBF, N: int):

@@ -1,6 +1,8 @@
 import numpy as np
 from sets.ellipsoid import Ellipsoid, plot_projection
 from sets.radialBasisFunction import RBF
+from sets.parameterized_set import ParameterizedSet
+from typing import Literal
 
 d = 2
 
@@ -21,8 +23,8 @@ def _in_dogbone(x):
     return in_c1 | in_c2
 
 def _in_dynamics(x, nearest):
-    A = np.array([[0, -1], [1, 0]])
-    # A = np.array([[0.5, 0], [0, 0.5]])
+    # A = np.array([[0, -1], [1, 0]])
+    A = np.array([[0.5, 0], [0, 0.5]])
     return (A@(x-nearest).T).T + nearest
 
 def P_batch(x):
@@ -49,10 +51,13 @@ def P_batch(x):
 
     return out
 
-def initial_guess():
+def initial_guess(set_type: Literal['ell', 'rbf'], N = 100):
     """Single RBF centered at origin as initial guess."""
-    E0   = Ellipsoid(d)
-    pts  = np.random.uniform(low=-0.6, high=0.6, size=(200, d)) + np.array([0.6, 0])
+    if(set_type == 'ell'):
+        E0  = Ellipsoid(d)
+    elif(set_type == 'rbf'):
+        E0  = RBF(d)
+    pts  = np.random.uniform(low=-2., high=2., size=(N, d))
     E0.fit(pts, 2)
     return E0
 
