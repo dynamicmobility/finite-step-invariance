@@ -14,7 +14,7 @@ class ParameterizedSet(ABC):
 
     # Samples N points  
     @abstractmethod
-    def sample_from(self, N: int) -> np.ndarray:
+    def sample_from(self, N: int, rng: np.random.Generator | None = None) -> np.ndarray:
         pass
 
     @abstractmethod

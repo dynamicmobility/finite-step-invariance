@@ -22,10 +22,10 @@ class Ellipsoid(ParameterizedSet):
         """Fit row-wise data and return the optimization objective."""
         return self._fit_p_ball(data, normp=normp, verbose=verbose)
 
-    def sample_from(self, N: int) -> np.ndarray:
+    def sample_from(self, N: int, rng: np.random.Generator) -> np.ndarray:
         """Return uniform samples with shape (N, dimension)."""
-        pts = np.random.standard_normal((self.dimension, N))
-        radii = np.random.uniform(size=N) ** (1 / self.dimension)
+        pts = rng.standard_normal((self.dimension, N))
+        radii = rng.uniform(size=N) ** (1 / self.dimension)
         pts = radii * pts / np.linalg.norm(pts, axis=0)
         return (np.linalg.inv(sqrtm(self.Q)) @ pts + self.c).T
 

@@ -26,7 +26,7 @@ def main():
     args = parser.parse_args()
     if args.samples <= 0:
         parser.error('--samples must be positive')
-    np.random.seed(args.seed)
+    rng = np.random.default_rng(args.seed)
 
     rbf = RBF(2, thresh=np.log(0.25))
     rbf.load_from_row(np.array([-0.6, 0., 0.6, 0., width, width]))
@@ -42,13 +42,13 @@ def main():
     )
     assert rbf.contains_points(np.empty((0, 2))).shape == (0,)
 
-    samples = rbf.sample_from(args.samples)
+    samples = rbf.sample_from(args.samples, rng=rng)
     assert samples.shape == (args.samples, 2)
     assert np.isfinite(samples).all()
     assert np.all(np.abs(samples) <= 4)
     assert rbf.contains_points(samples).all()
     assert expected_membership(samples, rbf.thresh).all()
-    assert rbf.sample_from(0).shape == (0, 2)
+    assert rbf.sample_from(0, rng=rng).shape == (0, 2)
     print(f'PASS: analytic membership checks; {len(samples)} samples inside the set.')
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharex=True, sharey=True)

@@ -35,3 +35,22 @@ Set types: `ellipsoid`, `rbf`. Systems (case insensitive): `ExpanderContractor`,
 `DogBone`, `CompassGaitWalker`. Defaults are 2000 samples, threshold 0.0,
 `ellipsoid`, and `ExpanderContractor`. Thresholds below the attainable
 statistical bound for N are raised to that bound with a warning.
+
+### Seed sweeps
+
+Run ten independent trials with seeds 0 through 9:
+```bash
+python SweepSeeds.py --trials 10 --seed 0 --N 2000 --eps-thresh 0.07 --set-type ell --system cec
+```
+Or select seeds explicitly:
+```bash
+python SweepSeeds.py --seeds 3 17 42 --set-type rbf --system nec --output Data/seed_sweep.csv
+```
+The sweep skips plots, prints a result per trial, and writes a summary CSV after
+each trial. It reports `iterations` (number of iterations executed, starting at
+1), `converged`, `termination_reason`, and the post-hoc `verification_error_rate`
+(escaped points divided by verification samples). Trials reaching the iteration
+limit are distinguished from convergence; failed trials are recorded and the
+sweep continues. `--max-iter` defaults to 200 and `--n-verify` to 5000.
+Use `--verbose` to display full trial output. Without `--output`, the CSV goes to
+`Data/` with the system, set type, and timestamp in its filename.

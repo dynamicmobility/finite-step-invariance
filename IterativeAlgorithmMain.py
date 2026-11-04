@@ -40,11 +40,14 @@ def plot_set(set_, ax, diml=0, dimh=1, color='blue', label=None, **kwargs):
 
 
 def main(args):
+    rng = np.random.default_rng(args.seed)
+    max_iter = getattr(args, "max_iter", MAX_ITER)
+    show_plots = not getattr(args, "no_plot", False)
     sys = importlib.import_module(SYSTEMS[args.system])
     print("Using backend: ", jax.default_backend())
     N = args.N
     threshold = args.eps_thresh
-    E0 = sys.initial_guess(args.set_type)
+    E0 = sys.initial_guess(args.set_type, rng=rng, N=N)
     Ei = E0
 
     log_eps  = []
@@ -55,10 +58,11 @@ def main(args):
         warnings.warn(f"Threshold must be greater than {epsilon_min}, setting to epsilon_min")
         threshold = epsilon_min
 
-    for iteration in range(MAX_ITER):
+    converged = False
+    for iteration in range(max_iter):
 
         # --- Line 6-7: sample N points from E --------------------------------
-        Xi = Ei.sample_from(N)          # (N, d)
+        Xi = Ei.sample_from(N, rng=rng)          # (N, d)
 
         # --- Line 9: apply Poincaré return map --------------------------------
         Xi_prime = sys.P_batch(Xi)             # (N, d)
@@ -86,7 +90,8 @@ def main(args):
         log_theta.append(np.asarray(Ei.params()).flatten().copy())
 
         if epsilon <= threshold:
-            print(f"\nConverged after {iteration} iterations,  with epsilon = {epsilon}")
+            converged = True
+            print(f"\nConverged after {iteration + 1} iterations,  with epsilon = {epsilon}")
             break
 
         # fit MVEE to W (NOT UNIONED WITH U)
@@ -101,7 +106,7 @@ def main(args):
             continue
         Ei = candidate
         # Ei.fit(WU, 2)
-        if PLOT:
+        if PLOT and show_plots:
             fig, ax = plt.subplots()
             plot_set(Ei, ax, color='blue',   label='$\\mathcal{E}_i$')
 
@@ -133,7 +138,7 @@ def main(args):
             plt.show()
 
     else:
-        print(f"\nDid not converge within {MAX_ITER} iterations.")
+        print(f"\nDid not converge within {max_iter} iterations.")
 
     # =========================================================================
     # RETURN  E* = { x : ||A x - b|| <= 1 }
@@ -146,41 +151,57 @@ def main(args):
     # =========================================================================
     # Verification: confirm P(x) ∈ E*  for  N_verify  samples from  E*
     # =========================================================================
-    N_verify = 5000
-    pts_v    = E_star.sample_from(N_verify)
+    N_verify = getattr(args, "n_verify", 5000)
+    pts_v    = E_star.sample_from(N_verify, rng=rng)
     Ppts_v   = sys.P_batch(pts_v)
     n_esc    = int(np.sum(~E_star.contains_points(Ppts_v)))
     print(f"\nVerification ({N_verify} samples): {n_esc} escaped "
         f"({100*n_esc/N_verify:.2f}%)")
     print("PASS" if n_esc/N_verify < threshold else "FAIL — Error rate too high")
 
+    result = {
+        'seed': args.seed,
+        'system': args.system,
+        'set_type': args.set_type,
+        'N': N,
+        'eps_thresh': args.eps_thresh,
+        'effective_eps_thresh': threshold,
+        'iterations': iteration + 1,
+        'converged': converged,
+        'termination_reason': 'converged' if converged else 'max_iterations',
+        'verification_samples': N_verify,
+        'verification_escapes': n_esc,
+        'verification_error_rate': n_esc / N_verify,
+    }
+
     ## Save data to CSVs
-    timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S_%f") + f"_seed{args.seed}"
     sysname    = sys.__name__
 
     # =========================================================================
     # Plot final ellipsoid projections (all 2-D coordinate pairs)
     # =========================================================================
-    labels = [f'$x_{k+1}$' for k in range(sys.d)]
-    pairs  = [(i, j) for i in range(sys.d) for j in range(i + 1, sys.d)]
+    if show_plots or SAVE_DATA:
+        labels = [f'$x_{k+1}$' for k in range(sys.d)]
+        pairs  = [(i, j) for i in range(sys.d) for j in range(i + 1, sys.d)]
 
-    fig, axes = plt.subplots(1, len(pairs), figsize=(4 * len(pairs), 4))
-    if len(pairs) == 1:
-        axes = [axes]
-    for ax, (i, j) in zip(axes, pairs):
-        plot_set(E_star, ax,
-                        diml=i, dimh=j, color='blue', label='$\\mathcal{E}^*$')
-        plot_set(E0, ax,
-                        diml=i, dimh=j, color='orange', linestyle='--', label='$\\mathcal{E}_0$')
-        if hasattr(sys, "plot_true"):
-            sys.plot_true(ax, diml=i, dimh=j, label="True")
-        ax.scatter(pts_v[:, i], pts_v[:, j], s=2, c='blue',  alpha=0.2, label='samples')
-        ax.scatter(Ppts_v[:, i], Ppts_v[:, j], s=2, c='green', alpha=0.2, label='returns')
-        ax.set_xlabel(labels[i])
-        ax.set_ylabel(labels[j])
-        ax.legend(fontsize=7)
-    fig.suptitle(f'Final invariant {args.set_type} (blue) vs initial set (orange)')
-    plt.tight_layout()
+        fig, axes = plt.subplots(1, len(pairs), figsize=(4 * len(pairs), 4))
+        if len(pairs) == 1:
+            axes = [axes]
+        for ax, (i, j) in zip(axes, pairs):
+            plot_set(E_star, ax,
+                            diml=i, dimh=j, color='blue', label='$\\mathcal{E}^*$')
+            plot_set(E0, ax,
+                            diml=i, dimh=j, color='orange', linestyle='--', label='$\\mathcal{E}_0$')
+            if hasattr(sys, "plot_true"):
+                sys.plot_true(ax, diml=i, dimh=j, label="True")
+            ax.scatter(pts_v[:, i], pts_v[:, j], s=2, c='blue',  alpha=0.2, label='samples')
+            ax.scatter(Ppts_v[:, i], Ppts_v[:, j], s=2, c='green', alpha=0.2, label='returns')
+            ax.set_xlabel(labels[i])
+            ax.set_ylabel(labels[j])
+            ax.legend(fontsize=7)
+        fig.suptitle(f'Final invariant {args.set_type} (blue) vs initial set (orange)')
+        plt.tight_layout()
     # Save data to CSVs and other logs
     if(SAVE_DATA):
         df = pd.DataFrame({'epsilon': log_eps, 'volume': log_vol})
@@ -194,10 +215,14 @@ def main(args):
         with open(f"{sysname}_{set_type}_invariant_{timestamp}.txt", 'w') as f:
             f.write(f"params =\n{E_star.params()}\n")
         plt.savefig(f"{sysname}_{set_type}_invariant_{timestamp}.png")
-    plt.show()
+    if show_plots:
+        plt.show()
+    elif SAVE_DATA:
+        plt.close(fig)
+    return result
 
 
-if __name__ == '__main__':
+def build_parser():
     parser = argparse.ArgumentParser(description="Identify a probabilistically invariant set.")
     parser.add_argument('--N', '--n', type=int, default=N,
                         help='Samples per iteration (default: %(default)s)')
@@ -207,9 +232,28 @@ if __name__ == '__main__':
                         choices=['ell', 'rbf'], default='ell')
     parser.add_argument('--system', type=str.lower, choices=SYSTEMS,
                         default='cec')
-    args = parser.parse_args()
+    parser.add_argument('--seed', type=int, default=None, help='Random seed for repeatable performance across runs')
+    parser.add_argument('--max-iter', type=int, default=MAX_ITER,
+                        help='Maximum iterations per trial (default: %(default)s)')
+    parser.add_argument('--n-verify', type=int, default=5000,
+                        help='Post-hoc verification sample count (default: %(default)s)')
+    parser.add_argument('--no-plot', action='store_true', help='Skip interactive plots')
+    return parser
+
+
+def validate_args(parser, args):
     if args.N <= 0:
         parser.error('N must be positive')
     if not 0 <= args.eps_thresh <= 1:
         parser.error('eps_thresh must be in [0, 1]')
+    if args.seed is not None and args.seed < 0:
+        parser.error('seed must be nonnegative')
+    if args.max_iter <= 0 or args.n_verify <= 0:
+        parser.error('max-iter and n-verify must be positive')
+
+
+if __name__ == '__main__':
+    parser = build_parser()
+    args = parser.parse_args()
+    validate_args(parser, args)
     main(args)

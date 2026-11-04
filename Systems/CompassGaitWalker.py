@@ -133,12 +133,12 @@ P_batch = jax.vmap(P_single, in_axes=0)   # (N,3) -> (N,3)
 J = jax.jacrev(P_single)(jnp.array([0., 0., 0.]))
 
 # Either choose from uniform distribution or guess Q from contraction metric "Contraction" or "Uniform"
-def initial_guess(set_type: Literal['ell', 'rbf'], strategy="Contraction"):
+def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator, strategy="Contraction", N=2000):
     if set_type == "rbf":
         raise NotImplementedError()
     E0 = Ellipsoid(3)
     if strategy == "Uniform":
-        pts_0 = np.random.uniform([-0.1, -1, -0.3], [0.1, 1, 0.3], (2000,3))
+        pts_0 = rng.uniform([-0.1, -1, -0.3], [0.1, 1, 0.3], (N,3))
         E0.fit(pts_0, 2)
 
     elif strategy == "Contraction":

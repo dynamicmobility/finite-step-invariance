@@ -45,7 +45,7 @@ class RBF(ParameterizedSet):
         self.num_nballs = num_balls
         return self
 
-    def sample_from(self, N: int) -> np.ndarray:
+    def sample_from(self, N: int, rng: np.random.Generator | None) -> np.ndarray:
         """Sample the level set within the existing [-4, 4]^dimension box."""
         if self.centers_opt is None or self.widths_opt is None:
             raise ValueError("Fit the RBF before sampling")
@@ -54,7 +54,7 @@ class RBF(ParameterizedSet):
         samples = []
         n_samples = 0
         while n_samples < N:
-            points = np.random.uniform(-4, 4, size=(N - n_samples, self.dimension))
+            points = rng.uniform(-4, 4, size=(N - n_samples, self.dimension))
             accepted = points[self.contains_points(points), :]
             samples.append(accepted)
             n_samples += len(accepted)
@@ -140,7 +140,7 @@ class RBF(ParameterizedSet):
         ax.set_xlabel('$x$')
         ax.set_ylabel('$y$')
 
-    def rbf_solve(self, nballs, thresh, data, dimensions, centers_init=None):
+    def rbf_solve(self, nballs, thresh, data, dimensions, centers_init=None, rng=None):
         def rbf_badness(params, nballs, data, thresh):
             centers = params[0:dimensions*nballs].reshape((nballs,dimensions))
             widths = params[dimensions*nballs:(dimensions+1)*nballs]
@@ -157,7 +157,8 @@ class RBF(ParameterizedSet):
             return b
 
         if centers_init is None:
-            centers_init = 5*np.random.normal(size=dimensions*nballs)
+            rng = np.random.default_rng() if rng is None else rng
+            centers_init = 5*rng.normal(size=dimensions*nballs)
         centers_init = centers_init.reshape((dimensions*nballs,))
         widths_init = 5*np.ones((nballs,))
         params_init = np.concatenate((centers_init, widths_init))
@@ -208,9 +209,9 @@ class RBF(ParameterizedSet):
         return np.sum(np.power(self.widths_opt, 2))
 
 
-def sample_uniform_levelset(r: RBF, N: int):
+def sample_uniform_levelset(r: RBF, N: int, rng=None):
     """Compatibility wrapper for RBF.sample_from."""
-    return r.sample_from(N)
+    return r.sample_from(N, rng=rng)
 
 if __name__ == "__main__":
     from scipy.integrate import odeint
