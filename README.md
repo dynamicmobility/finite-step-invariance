@@ -31,9 +31,9 @@ Choose the sample count, convergence threshold, set type, and system:
 ```bash
 python IterativeAlgorithmMain.py --N 2000 --eps-thresh 0.07 --set-type rbf --system DogBone
 ```
-Set types: `ellipsoid`, `rbf`. Systems (case insensitive): `ExpanderContractor`,
-`DogBone`, `CompassGaitWalker`. Defaults are 2000 samples, threshold 0.0,
-`ellipsoid`, and `ExpanderContractor`. Thresholds below the attainable
+Set types: `ell`, `rbf`. Systems (case insensitive): `cec`,
+`nec`, `cgw`. Defaults are 2000 samples, threshold 0.0,
+`ell`, and `cec`. Thresholds below the attainable
 statistical bound for N are raised to that bound with a warning.
 
 ### Seed sweeps
@@ -54,3 +54,13 @@ limit are distinguished from convergence; failed trials are recorded and the
 sweep continues. `--max-iter` defaults to 200 and `--n-verify` to 5000.
 Use `--verbose` to display full trial output. Without `--output`, the CSV goes to
 `Data/` with the system, set type, and timestamp in its filename.
+
+Run trials in parallel using spawned worker processes:
+```bash
+python SweepSeeds.py --trials 10 --seed 0 --workers 4 --system nec --set-type ell
+```
+`--workers 1` (the default) runs sequentially. Parallel workers use a
+noninteractive plotting backend and limit BLAS/OpenMP threads to one each.
+JAX and solver runtimes may still use additional threads. Results are printed
+as trials finish; the summary CSV stays sorted by the original trial order.
+Only the parent process writes the summary CSV.
