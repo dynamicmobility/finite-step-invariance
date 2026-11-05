@@ -43,6 +43,7 @@ def main(args):
     rng = np.random.default_rng(args.seed)
     max_iter = getattr(args, "max_iter", MAX_ITER)
     show_plots = not getattr(args, "no_plot", False)
+    save_data = getattr(args, "save_data", SAVE_DATA)
     sys = importlib.import_module(SYSTEMS[args.system])
     print("Using backend: ", jax.default_backend())
     N = args.N
@@ -173,6 +174,8 @@ def main(args):
         'verification_escapes': n_esc,
         'verification_error_rate': n_esc / N_verify,
     }
+    result.update({f'param_{k}': float(value)
+                   for k, value in enumerate(np.asarray(E_star.params()).ravel())})
 
     ## Save data to CSVs
     timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S_%f") + f"_seed{args.seed}"
@@ -181,7 +184,7 @@ def main(args):
     # =========================================================================
     # Plot final ellipsoid projections (all 2-D coordinate pairs)
     # =========================================================================
-    if show_plots or SAVE_DATA:
+    if show_plots or save_data:
         labels = [f'$x_{k+1}$' for k in range(sys.d)]
         pairs  = [(i, j) for i in range(sys.d) for j in range(i + 1, sys.d)]
 
@@ -203,7 +206,7 @@ def main(args):
         fig.suptitle(f'Final invariant {args.set_type} (blue) vs initial set (orange)')
         plt.tight_layout()
     # Save data to CSVs and other logs
-    if(SAVE_DATA):
+    if save_data:
         df = pd.DataFrame({'epsilon': log_eps, 'volume': log_vol})
 
         set_type = type(E_star).__name__.lower()
@@ -217,7 +220,7 @@ def main(args):
         plt.savefig(f"{sysname}_{set_type}_invariant_{timestamp}.png")
     if show_plots:
         plt.show()
-    elif SAVE_DATA:
+    elif save_data:
         plt.close(fig)
     return result
 
@@ -237,6 +240,8 @@ def build_parser():
                         help='Maximum iterations per trial (default: %(default)s)')
     parser.add_argument('--n-verify', type=int, default=5000,
                         help='Post-hoc verification sample count (default: %(default)s)')
+    parser.add_argument('--save-data', '--save_data', action='store_true', default=SAVE_DATA,
+                        help='Save per-step parameters, convergence data, and final plot')
     parser.add_argument('--no-plot', action='store_true', help='Skip interactive plots')
     return parser
 

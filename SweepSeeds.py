@@ -1,4 +1,4 @@
-"""Run independent seeded trials and save termination and verification metrics."""
+"""Run seeded trials and save termination, verification, and final parameters."""
 
 import argparse
 import contextlib

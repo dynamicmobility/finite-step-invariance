@@ -20,13 +20,14 @@ def P_batch(x):
     return ((x.T-v)*_h(x.T, Q, v) + v).T
 
 def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator, N = 100):
-    rng = np.random.default_rng() if rng is None else rng
-    pts = rng.uniform(low=-3, high=3, size=(N, d))
     if(set_type == 'ell'):
         E0  = Ellipsoid(d)
+        E0.load_from_row(np.concat([0.1*np.eye(2,2).flatten(), np.array([0, 0])]))
     elif(set_type == 'rbf'):
         E0  = RBF(d, 2)
-    E0.fit(pts)
+        rng = np.random.default_rng() if rng is None else rng
+        pts = rng.uniform(low=-3, high=3, size=(N, d))
+        E0.fit(pts)
     return E0
 
 # def initial_guess_rbf(rng=None):

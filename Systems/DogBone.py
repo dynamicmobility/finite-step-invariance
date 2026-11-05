@@ -55,10 +55,11 @@ def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator, N =
     """Single RBF centered at origin as initial guess."""
     if(set_type == 'ell'):
         E0  = Ellipsoid(d)
+        E0.load_from_row(np.concat([np.eye(2,2).flatten(), np.array([0, 0])]))
     elif(set_type == 'rbf'):
         E0  = RBF(d)
-    pts  = rng.uniform(low=-2., high=2., size=(N, d))
-    E0.fit(pts, 2)
+        pts  = rng.uniform(low=-2., high=2., size=(N, d))
+        E0.fit(pts, 2)
     return E0
 
 # def initial_guess_rbf(rng=None):
