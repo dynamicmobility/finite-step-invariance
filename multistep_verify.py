@@ -3,7 +3,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Sys
 import numpy as np
 from scipy.linalg import solve_discrete_lyapunov, sqrtm
 from matplotlib import pyplot as plt
-from ellipsoids import Ellipsoid, plot_projection, sample_from
+from sets.ellipsoid import Ellipsoid, plot_projection, sample_from
 import CompassGaitWalker
 import ExpanderContractor
 import DogBone

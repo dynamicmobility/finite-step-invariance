@@ -2,7 +2,7 @@ import numpy as np
 import jax.numpy as jnp
 from scipy.linalg import sqrtm
 from matplotlib import pyplot as plt
-from ellipsoids import plot_ellipse, Ellipsoid
+from sets.ellipsoid import plot_ellipse, Ellipsoid
 from typing import Tuple
 from CompassGaitWalker import CompassGaitWalker
 from diffrax import diffeqsolve, ODETerm, Tsit5, Event

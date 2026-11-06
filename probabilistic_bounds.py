@@ -1,5 +1,6 @@
 from scipy.optimize import minimize, NonlinearConstraint
-from scipy.stats import beta 
+from scipy.stats import beta, binom
+import numpy as np
 
 # Scenario Bound
 def scenario_bound(num_optimization_vars: int, num_samples: int, beta:float) -> float:
@@ -16,7 +17,7 @@ def scenario_bound(num_optimization_vars: int, num_samples: int, beta:float) -> 
     def binom_cdf_if_fails(e, k, l):
         binom_sum = 0
         for j in range(0, k+1):
-            if not math.isnan(binom.pmf(j, l, e)[0]):
+            if not np.isnan(binom.pmf(j, l, e)[0]):
                 binom_sum += binom.pmf(j, l, e)
         return binom_sum
     

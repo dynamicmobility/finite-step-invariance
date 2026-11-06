@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.linalg import sqrtm
 from matplotlib import pyplot as plt
-from ellipsoids import plot_ellipse, Ellipsoid
+from sets.ellipsoid import plot_ellipse, Ellipsoid
 import pdb
 from numpy.random import default_rng
 from scipy.integrate import solve_ivp

@@ -5,10 +5,12 @@ from scipy.special import gamma
 from scipy.optimize import minimize, NonlinearConstraint
 from numpy.linalg import det, inv
 from scipy.linalg import null_space, sqrtm
+from sets.parameterized_set import ParameterizedSet
 
 # Defines ellipsoid as (x-c)T Q (x-c) <= 1
-class Ellipsoid:
+class Ellipsoid(ParameterizedSet):
     def __init__(self, n = 2):
+        super().__init__(n)
         self.Q = np.eye(n)
         self.c = np.zeros((n, 1))
         self.L = np.linalg.cholesky((self.Q + self.Q.T)/2)
@@ -16,9 +18,57 @@ class Ellipsoid:
         self.b = np.zeros((n, 1))
         self.r = 0
 
+    def fit(self, data, normp=2, verbose=False):
+        """Fit row-wise data and return the optimization objective."""
+        return self._fit_p_ball(data, normp=normp, verbose=verbose)
+
+    def sample_from(self, N: int, rng: np.random.Generator) -> np.ndarray:
+        """Return uniform samples with shape (N, dimension)."""
+        pts = rng.standard_normal((self.dimension, N))
+        radii = rng.uniform(size=N) ** (1 / self.dimension)
+        pts = radii * pts / np.linalg.norm(pts, axis=0)
+        return (np.linalg.inv(sqrtm(self.Q)) @ pts + self.c).T
+
+    def contains_points(self, pts: np.ndarray) -> np.ndarray:
+        """Return a membership mask for row-wise points."""
+        pts = np.asarray(pts)
+        if pts.ndim != 2 or pts.shape[1] != self.dimension:
+            raise ValueError("pts must have shape (N, dimension)")
+        centered = pts - self.c.reshape(-1)
+        return np.einsum("ni,ij,nj->n", centered, self.Q, centered) <= 1
+
+    def plot(self, ax, diml = 0, dimh = 1, alpha = 1.0, color = 'green', **kwargs):
+        plot_projection(self.Q, self.c.flatten(), 1.0, ax,
+                        diml=diml, dimh=dimh, alpha=alpha, color=color, **kwargs)
+        return ax
+
+    def params(self) -> np.ndarray:
+        return np.concat([self.Q.flatten(), self.c.flatten()])
+
+    def load_from_row(self, row: np.ndarray):
+        """Restore params() from a 1D CSV row, excluding the iteration index."""
+        row = np.asarray(row, dtype=float)
+        d = self.dimension
+        if row.ndim != 1 or row.size != d * d + d:
+            raise ValueError(f"row must be a 1D array of {d * d + d} parameters")
+        if not np.all(np.isfinite(row)):
+            raise ValueError("row must contain only finite parameters")
+        Q = row[:d * d].reshape(d, d).copy()
+        c = row[d * d:].reshape(d, 1).copy()
+        if not np.allclose(Q, Q.T):
+            raise ValueError("Q must be symmetric")
+        L = np.linalg.cholesky((Q + Q.T) / 2)
+        self.Q = Q
+        self.c = c
+        self.L = L
+        self.A = L.T
+        self.b = self.A @ c
+        self.r = 1.0
+        return self
+
     # Given a dataset of xs and norm degree, fit ellipse to dataset
     # Ellipse is fit in form ||Ax - b|| < 1 but saved in form Q, c
-    def fit_p_ball(self, xs, normp, verbose=False):
+    def _fit_p_ball(self, xs, normp=2, verbose=False):
         xs = np.array(xs).T
         n = np.shape(xs)[0]
         m = np.shape(xs)[1]
@@ -81,18 +131,14 @@ class Ellipsoid:
         r = (b.T @ A @ Q_inv @ A.T @ b) - (b.T @ b) + 1
         return Q, c, r
 
-    def mahalanobis_distance(self, p):
+    def _mahalanobis_distance(self, p):
         return np.diag((p-self.c).T@self.Q@(p-self.c))
 
-    # Checks if a point p is contained in this ellipse
     def contains_point(self, p):
-        return self.mahalanobis_distance(p) <= 1
+        """Compatibility wrapper for column-wise points (dimension, N)."""
+        return self.contains_points(np.asarray(p).reshape(self.dimension, -1).T)
 
-    # Checks if a point p is contained in this ellipse
-    def contains_point(self, p):
-        return np.diag((p-self.c).T@self.Q@(p-self.c) <= 1)
-    
-    def get_lb_cb(self, ell0):
+    def _get_lb_cb(self, ell0):
         L0 = ell0.L
         L0i = np.linalg.inv(L0)
         P = L0i @ self.Q @ L0i.transpose()
@@ -101,7 +147,7 @@ class Ellipsoid:
         cb = specDecomp[0].T @ L0.T @ (self.c - ell0.c)
         return (lb,cb.flatten())
 
-    def contains_ellipsoid(self, elli1):
+    def _contains_ellipsoid(self, elli1):
         """
         Python implementation of: https://arxiv.org/pdf/2211.06237
         Checks if ellipsoid 1 is in self
@@ -165,52 +211,22 @@ class Ellipsoid:
 
     # Divides Q by scale_factor
     # Which is equivalent to multiplying RHS of inequality (x-b)T Q (x-b) <= 1 by scale_factor
-    def scale(self, scale_factor):
+    def _scale(self, scale_factor):
         self.Q /= scale_factor
         self.L = np.linalg.cholesky((self.Q + self.Q.T)/2)
-
-    def ellipsoid_volume(self) -> float:
-        Q = self.A.T @ self.A
-        Q_inv = inv(Q)
-        c = Q_inv @ self.A.T @ self.b
-        r = self.b.T @ self.A @ Q_inv @ self.A.T @ self.b - self.b.T @ self.b + 1
-
-        n = self.A.shape[1]  # dimensionality of the ellipsoid
-
-        volume = (np.pi ** (n / 2)) / gamma(n / 2 + 1) * (r ** (n / 2)) / np.sqrt(det(Q))
-        return volume
-    
+ 
     def volume(self):
         n = self.Q.shape[1]  # dimensionality of the ellipsoid
         volume = ((np.pi ** (n / 2)) / gamma(n / 2 + 1)) / np.sqrt(det(self.Q))
         return volume
+
+
     
 
 # ------------------------------------------------------------------
 # ------------------------------------------------------------------
 # ------------------------------------------------------------------
 # Plotting ellipsoids
-
-def sample_from(e: Ellipsoid, N_pts: int) -> np.ndarray:
-    # Sample Normal Distribution 
-    d = len(e.c)
-    pts = np.random.standard_normal((d, N_pts))
-    r = np.random.uniform(0, 1, size=(N_pts,)) ** (1/d) # The denominator of the power is also the dimension
-    pts = r*pts/np.linalg.vector_norm(pts, axis=0)
-    return np.linalg.inv(sqrtm(e.Q))@pts + e.c
-    
-
-def convert_A_b_to_Q_c_r(A, b):
-    """
-    Convert ellipsoid of form ||A x - b|| <= 1
-    into standard ellipsoid form: (x - c)^T Q (x - c) <= r
-    Returns (Q, c, r)
-    """
-    Q = A.T @ A
-    Q_inv = np.linalg.inv(Q)
-    c = Q_inv @ A.T @ b
-    r = (b.T @ A @ Q_inv @ A.T @ b) - (b.T @ b) + 1
-    return Q, c, r
 
 def plot_projection(Q, c, r, ax, diml = 0, dimh = 1, alpha=0.75, color='green', **kwargs):
         P = Q / r
@@ -227,17 +243,6 @@ def plot_projection(Q, c, r, ax, diml = 0, dimh = 1, alpha=0.75, color='green', 
         )
         P = Minv.T @ N.T @ P @ N @ Minv
         plot_ellipse(P, c[(diml, dimh),], r, ax, alpha, color, **kwargs)
-
-def project_ellipsoid_to_2d(A, b, diml, dimh):
-    """
-    Project ellipsoid ||A x - b|| <= 1 from nD to 2D.
-    Returns (Q_2d, c_2d, r)
-    """
-    indices = [diml, dimh]
-    Q, c, r = convert_A_b_to_Q_c_r(A, b)
-    Q_2d = Q[np.ix_(indices, indices)]
-    c_2d = c[indices]
-    return Q_2d, c_2d, r
 
 def plot_ellipse(Q, c, r, ax, alpha=0.75, color='green', **kwargs):
     """

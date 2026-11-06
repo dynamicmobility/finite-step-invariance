@@ -2,13 +2,13 @@ import sys, os
 import numpy as np
 from scipy.linalg import solve_discrete_lyapunov, sqrtm
 from matplotlib import pyplot as plt
-from ellipsoids import Ellipsoid, plot_projection, sample_from
-from radialBasisFunctions import sample_uniform_levelset, RBF
+from sets.ellipsoid import Ellipsoid, plot_projection
+from sets.radialBasisFunction import RBF
 from probabilistic_bounds import binomial_tail
 from datetime import datetime
 import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Systems'))
-import DogBone
+from Systems import DogBone
 import jax
 import jax.numpy as jnp
 print("Using backend: ", jax.default_backend())
@@ -47,20 +47,20 @@ Ei = E0
 for iteration in range(MAX_ITER):
 
     # --- Line 6-7: sample N points from E --------------------------------
-    Xi = sample_uniform_levelset(Ei, N)        # (N, d)
+    Xi = Ei.sample_from(N)        # (N, d)
 
     # --- Line 9: apply Poincaré return map --------------------------------
     Xi_prime = sys.P_batch(Xi)             # (N, d)
 
     # --- Lines 11-13: partition ------------------------------------------
-    in_E   = Ei.contains_point(Xi_prime)   # (N,) bool
+    in_E   = Ei.contains_points(Xi_prime)   # (N,) bool
     U      = Xi[in_E,        :]   # their preimages
     V      = Xi_prime[~in_E, :]   # escaped return points
     W      = Xi_prime[in_E,  :]   # surviving return points
     Z      = Xi[~in_E, :]         # preimage of escaped return points
     n_tot = len(W) + len(V)
     curr_misses = len(V)
-    n_esc    = int(np.sum(~Ei.contains_point(Xi_prime)))
+    n_esc    = int(np.sum(~Ei.contains_points(Xi_prime)))
     print(f"Iter {iteration:3d}: |V|={len(V):4d}/{n_tot}  "
           f"({100*len(V)/n_tot:.1f}% escaped) ")
 
@@ -77,20 +77,20 @@ for iteration in range(MAX_ITER):
     VZ   = np.vstack((V,Z))
     Ei   = RBF(sys.d, np.log(0.25))
     try:
-        Ei.fit_rbf(U, 3)  
+        Ei.fit(U, 3)
     except np.linalg.LinAlgError:
         print("W not well-conditioned, resampling")
         continue
-    # Ei.fit_p_ball(WU, 2)
+    # Ei.fit(WU, 2)
     if PLOT:
         fig, ax = plt.subplots()
         ax.scatter(U[:,0],U[:,1],c='blue')
-        Ei.plot_2D_rbf(-8,8,-8,8,Ei.centers_opt,Ei.widths_opt, colors=['cyan'])
+        Ei.plot_2D_rbf(ax, -8,8,-8,8,Ei.centers_opt,Ei.widths_opt, colors=['cyan'])
         # plot_projection(Ei.Q, Ei.c.flatten(), 1, ax, color='blue',   label='$\\mathcal{E}_i$')
 
     if PLOT:
         # fig, ax = plt.subplots()
-        E0.plot_2D_rbf(-8,8,-8,8,E0.centers_opt,E0.widths_opt, colors=['orange'])
+        E0.plot_2D_rbf(ax, -8,8,-8,8,E0.centers_opt,E0.widths_opt, colors=['orange'])
         ax.scatter(U[:, 0], U[:, 1], c='blue',  s=8, label='$\\mathcal{U}$')
         ax.scatter(W[:, 0], W[:, 1], c='green', s=8, marker='x', label='$\\mathcal{W}$')
         ax.scatter(Z[:, 0], Z[:, 1], c='red',   s=8, label='$\\mathcal{Z}$')
@@ -143,9 +143,9 @@ print(f"Saved {csv_path}")
 # Verification: confirm P(x) ∈ E*  for  N_verify  samples from  E*
 # =========================================================================
 # N_verify = 5000
-# pts_v    = sample_uniform_levelset(E_star, N_verify)
+# pts_v    = E_star.sample_from(N_verify)
 # Ppts_v   = sys.P_batch(pts_v)
-# n_esc    = int(np.sum(~E_star.contains_point(Ppts_v.T)))
+# n_esc    = int(np.sum(~E_star.contains_points(Ppts_v)))
 # print(f"\nVerification ({N_verify} samples): {n_esc} escaped "
 #       f"({100*n_esc/N_verify:.2f}%)")
 # print("PASS" if n_esc == 0 else "FAIL — ellipsoid not verified invariant")
@@ -154,8 +154,8 @@ print(f"Saved {csv_path}")
 # Plot final ellipsoid projections (all three 2-D coordinate pairs)
 # =========================================================================
 # fig, axes = plt.subplots(1, 1, figsize=(12, 4))
-# E_star.plot_2D_rbf(-8,8,-8,8,E_star.centers_opt,E_star.widths_opt, colors=['blue'])
-# E0.plot_2D_rbf(-8,8,-8,8,E0.centers_opt,E0.widths_opt, colors=['orange'])
+# E_star.plot_2D_rbf(ax, -8,8,-8,8,E_star.centers_opt,E_star.widths_opt, colors=['blue'])
+# E0.plot_2D_rbf(ax, -8,8,-8,8,E0.centers_opt,E0.widths_opt, colors=['orange'])
 # ax.scatter(pts_v[:, 0], pts_v[:, 1], s=2, c='blue',  alpha=0.2, label='samples')
 # ax.scatter(Ppts_v[:, 0], Ppts_v[:, 1], s=2, c='green', alpha=0.2, label='returns')
 # ax.legend(fontsize=7)

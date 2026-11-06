@@ -2,7 +2,7 @@ import numpy as np
 from scipy.spatial import ConvexHull
 import cvxpy as cp
 from matplotlib import pyplot as plt
-from ellipsoids import Ellipsoid, plot_projection, sample_from
+from sets.ellipsoid import Ellipsoid, plot_projection, sample_from
 import CompassGaitWalker
 import ExpanderContractor
 import DogBone
