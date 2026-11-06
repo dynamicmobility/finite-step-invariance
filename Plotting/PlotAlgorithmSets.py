@@ -99,7 +99,7 @@ for ax, (di, dj) in zip(axes, pairs):
     ax.set_xlabel(f'$x_{di + 1}$')
     ax.set_ylabel(f'$x_{dj + 1}$', labelpad=2)
 
-axes[0].legend(fontsize=LEG_FS, loc='upper right', framealpha=0.9)
+# axes[0].legend(fontsize=LEG_FS, loc='upper right', framealpha=0.9)
 
 # Scale each subplot to fit E0 (the largest ellipse, drawn first)
 margin = 0.1
@@ -111,15 +111,36 @@ for ax in axes:
     ax.set_ylim(y.min() - ypad, y.max() + ypad)
 
 sm   = mpl.cm.ScalarMappable(cmap=cmap, norm=norm)  # noqa: deprecated in 3.8+
-cbar = fig.colorbar(sm, ax=axes[-1], shrink=0.85, pad=0.03)
-cbar.set_label('Iteration', fontsize=FONT_FS)
-cbar.ax.tick_params(labelsize=TICK_FS)
-cbar.set_ticks(indices[1:])
+# cbar = fig.colorbar(sm, ax=axes[-1], shrink=0.85, pad=0.03)
+# cbar.set_label('Iteration', fontsize=FONT_FS)
+# cbar.ax.tick_params(labelsize=TICK_FS)
+# cbar.set_ticks(indices[1:])
 
 fig.tight_layout()
 
+# =========================================================================
+# Save bare figures only: no ticks, labels, axes, legend, or colorbar
+# =========================================================================
 FIGURES_DIR = os.path.join(_ROOT, 'Figures')
 os.makedirs(FIGURES_DIR, exist_ok=True)
 stem = os.path.basename(args.csv).replace('.csv', '')
-fig.savefig(os.path.join(FIGURES_DIR, f'{stem}_sets.pdf'), bbox_inches='tight')
-print(f"Saved Figures/{stem}_sets.pdf  ({n_iters} ellipsoids, d={d}, {n_pairs} projection(s))")
+
+for ax in axes:
+    ax.set_axis_off()
+
+fig.subplots_adjust(left=0, right=1, bottom=0, top=1, wspace=0.05)
+fig.canvas.draw()
+
+if n_pairs == 1:
+    fig.savefig(os.path.join(FIGURES_DIR, f'{stem}_sets_bare.pdf'),
+                bbox_inches='tight', pad_inches=0)
+    print(f"Saved Figures/{stem}_sets_bare.pdf")
+else:
+    for ax, (di, dj) in zip(axes, pairs):
+        # crop to exactly this subplot's area
+        bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        name = f'{stem}_sets_bare_x{di + 1}x{dj + 1}.pdf'
+        fig.savefig(os.path.join(FIGURES_DIR, name), bbox_inches=bbox, pad_inches=0)
+        print(f"Saved Figures/{name}")
+
+print(f"({n_iters} ellipsoids, d={d}, {n_pairs} projection(s))")

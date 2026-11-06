@@ -45,12 +45,16 @@ class Ellipsoid(ParameterizedSet):
     def params(self) -> np.ndarray:
         return np.concat([self.Q.flatten(), self.c.flatten()])
 
+    @classmethod
+    def get_d_from_row_length(cls, l):
+        return int(0.5*(-1 + np.sqrt(1+4*l)))
+
     def load_from_row(self, row: np.ndarray):
         """Restore params() from a 1D CSV row, excluding the iteration index."""
         row = np.asarray(row, dtype=float)
-        d = self.dimension
-        if row.ndim != 1 or row.size != d * d + d:
-            raise ValueError(f"row must be a 1D array of {d * d + d} parameters")
+        if row.ndim != 1:
+            raise ValueError(f"row must be a 1D array of parameters")
+        d = self.get_d_from_row_length(row.size)
         if not np.all(np.isfinite(row)):
             raise ValueError("row must contain only finite parameters")
         Q = row[:d * d].reshape(d, d).copy()
@@ -58,6 +62,7 @@ class Ellipsoid(ParameterizedSet):
         if not np.allclose(Q, Q.T):
             raise ValueError("Q must be symmetric")
         L = np.linalg.cholesky((Q + Q.T) / 2)
+        self.dimension = d
         self.Q = Q
         self.c = c
         self.L = L

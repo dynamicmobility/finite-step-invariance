@@ -254,3 +254,34 @@ draw_panels(axes, show_titles=True)
 fig.tight_layout()
 fig.savefig(os.path.join(FIGURES_DIR, 'fig_steps.pdf'), bbox_inches='tight')
 print("Saved fig_steps.pdf")
+
+# =========================================================================
+# Individual panels: no axes, ticks, labels, or titles
+# =========================================================================
+PANEL_NAMES = ['fig_step1_sample', 'fig_step2_map',
+               'fig_step3_partition', 'fig_step4_mvee']
+
+def save_individual_panels(size=2.125):
+    # shared limits: draw all panels once, take the union of their limits
+    lims = []
+    for idx in range(4):
+        f, a = plt.subplots(figsize=(size, size))
+        draw_panel(a, idx, show_title=False)
+        lims.append((a.get_xlim(), a.get_ylim()))
+        plt.close(f)
+    xlim = (min(l[0][0] for l in lims), max(l[0][1] for l in lims))
+    ylim = (min(l[1][0] for l in lims), max(l[1][1] for l in lims))
+
+    for idx, name in enumerate(PANEL_NAMES):
+        fig_i, ax_i = plt.subplots(figsize=(size, size))
+        draw_panel(ax_i, idx, show_title=False)
+        if ax_i.get_legend() is not None:
+            ax_i.get_legend().remove()
+        ax_i.set_xlim(xlim); ax_i.set_ylim(ylim)
+        ax_i.axis('off')
+        fig_i.subplots_adjust(0, 0, 1, 1)           # axes fill the whole canvas
+        fig_i.savefig(os.path.join(FIGURES_DIR, f'{name}.pdf'),
+                      transparent=True)              # no bbox_inches='tight'
+        plt.close(fig_i)
+        
+save_individual_panels()

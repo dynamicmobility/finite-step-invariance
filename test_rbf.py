@@ -29,7 +29,7 @@ def main():
     rng = np.random.default_rng(args.seed)
 
     rbf = RBF(2, thresh=np.log(0.25))
-    rbf.load_from_row(np.array([-0.6, 0., 0.6, 0., width, width]))
+    rbf.load_from_row(np.array([-0.6, 0., 0.6, 0., width, width, rbf.thresh]))
 
     X, Y = np.meshgrid(np.linspace(-4, 4, 41), np.linspace(-4, 4, 41))
     points = np.column_stack((X.ravel(), Y.ravel()))

@@ -21,7 +21,7 @@ N        = 2000   # samples per iteration
 MAX_ITER = 200
 PLOT     = False  # Shows the plot every iteration
 RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast
-EPS_THRESHOLD = 0.07 # User-defined accuracy threshold for convergence
+EPS_THRESHOLD = 0.05 # User-defined accuracy threshold for convergence
 
 # =========================================================================
 # Model Setup
@@ -30,12 +30,35 @@ EPS_THRESHOLD = 0.07 # User-defined accuracy threshold for convergence
 sys = DogBone
 
 # =========================================================================
+# RBF log: one block of rows per iteration, rewritten after every fit so a
+# crash / Ctrl-C does not lose the history.
+# Columns: iteration, ball, center_0..center_{d-1}, width, thresh
+# iteration 0 = initial RBF E0
+# =========================================================================
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+sysname   = sys.__name__
+csv_path  = f"{sysname}_rbf_log_{timestamp}.csv"
+rbf_rows  = []
+ 
+def log_rbf(it, rbf):
+    cen = np.asarray(rbf.centers_opt)
+    wid = np.asarray(rbf.widths_opt)
+    for k in range(len(wid)):
+        row = {'iteration': it, 'ball': k}
+        row.update({f'center_{j}': float(cen[k, j]) for j in range(sys.d)})
+        row['width']  = float(wid[k])
+        row['thresh'] = float(rbf.thresh)
+        rbf_rows.append(row)
+    pd.DataFrame(rbf_rows).to_csv(csv_path, index=False)
+
+# =========================================================================
 # Main Algorithm – Identify Invariant Ellipsoid
 # =========================================================================
 
 # Initial ellipsoid  E0 = { x : ||A0 x - b0|| <= 1 }
 # Initial guess is system-dependent
 E0 = sys.initial_guess_rbf()
+log_rbf(0, E0)
 
 # print(f"Initial ellipsoid volume: {E0.volume():.6e}")
 
@@ -81,7 +104,8 @@ for iteration in range(MAX_ITER):
     except np.linalg.LinAlgError:
         print("W not well-conditioned, resampling")
         continue
-    # Ei.fit(WU, 2)
+    # Ei.fit_p_ball(WU, 2)
+    log_rbf(iteration + 1, Ei)  
     if PLOT:
         fig, ax = plt.subplots()
         ax.scatter(U[:,0],U[:,1],c='blue')
@@ -135,7 +159,7 @@ df_rbf = pd.DataFrame(E_star.centers_opt, columns=c_cols)
 df_rbf['width'] = E_star.widths_opt
 df_rbf['thresh'] = E_star.thresh
 df_rbf.index.name = 'ball'
-csv_path = f"{sysname}_rbf_log_{timestamp}.csv"
+csv_path = f"{sysname}_rbf_log_{timestamp}_final.csv"
 df_rbf.to_csv(csv_path)
 print(f"Saved {csv_path}")
 

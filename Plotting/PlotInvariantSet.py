@@ -54,6 +54,7 @@ mpl.rcParams.update({
     'ps.fonttype': 42
 })
 
+
 # =========================================================================
 # Colours — hero figure palette (PlotAlgorithmSteps.py)
 # =========================================================================
@@ -171,6 +172,36 @@ os.makedirs(FIGURES_DIR, exist_ok=True)
 stem = os.path.basename(args.csv).replace('.csv', '')
 fig.savefig(os.path.join(FIGURES_DIR, f'{stem}_invariant.pdf'), bbox_inches='tight')
 print(f"Saved Figures/{stem}_invariant.pdf")
+
+fig.savefig(os.path.join(FIGURES_DIR, f'{stem}_invariant.pdf'), bbox_inches='tight')
+print(f"Saved Figures/{stem}_invariant.pdf")
+
+# =========================================================================
+# Save a bare version: no ticks, labels, axes, frame
+# =========================================================================
+for ax in axes:
+    ax.set_axis_off()          # hides spines, ticks, tick labels, axis labels
+
+fig.subplots_adjust(left=0, right=1, bottom=0, top=1, wspace=0.05)
+fig.savefig(os.path.join(FIGURES_DIR, f'{stem}_invariant_bare.pdf'),
+            bbox_inches='tight', pad_inches=0)
+print(f"Saved Figures/{stem}_invariant_bare.pdf")
+
+# ---- Individual bare PDFs, one per projection (only if more than one) ----
+if n_pairs > 1:
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    for ax, (di, dj) in zip(axes, pairs):
+        bbox = ax.get_tightbbox(renderer).transformed(fig.dpi_scale_trans.inverted())
+        fname = f'{stem}_invariant_bare_x{di + 1}x{dj + 1}.pdf'
+        fig.savefig(os.path.join(FIGURES_DIR, fname),
+                    bbox_inches=bbox, pad_inches=0)
+        print(f"Saved Figures/{fname}")
+
+for ax, (di, dj) in zip(axes, pairs):
+    x0, x1 = ax.get_xlim()
+    y0, y1 = ax.get_ylim()
+    print(f"x{di+1}-x{dj+1}:  xmin={x0:.4g}, xmax={x1:.4g}, ymin={y0:.4g}, ymax={y1:.4g}")
 
 # =========================================================================
 # Save standalone horizontal legend
