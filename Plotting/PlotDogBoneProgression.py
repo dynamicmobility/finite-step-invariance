@@ -10,11 +10,10 @@ Writes:
 Usage:
     python PlotDogBoneProgression.py <ellipsoid_log_csv> <rbf_log_csv> [--roa]
 
-Assumed CSV formats
-  ellipsoid_log : index column 'iteration', columns q{i}{j}, c{k}   (as in PlotDogBoneComparison.py)
-  rbf_log       : columns 'iteration', 'ball', center_{k}, 'width', 'thresh'
-                  (one block of rows per iteration; if there is no 'iteration'
-                  column, only the final RBF can be drawn)
+CSV formats
+  Current logs: index column 'iteration', columns param_0, param_1, ...
+  RBF rows contain flattened centers, widths, and a trailing threshold.
+  Legacy RBF logs with center_{k}, width, and thresh columns are also supported.
 """
 
 import sys
@@ -30,8 +29,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker
 
-from ellipsoids import Ellipsoid, plot_projection
-import DogBone
+from sets.ellipsoid import Ellipsoid
+from sets.radialBasisFunction import RBF
+from Systems import DogBone
 
 # =========================================================================
 # Paper style  (identical to PlotDogBoneComparison.py)
@@ -70,28 +70,43 @@ os.makedirs(FIGURES_DIR, exist_ok=True)
 # Load ellipsoid sequence
 # =========================================================================
 df_ell = pd.read_csv(args.ellipsoid_csv, index_col='iteration')
-d      = sum(1 for col in df_ell.columns if col.startswith('c'))
-q_cols = [f'q{i}{j}' for i in range(d) for j in range(d)]
-c_cols = [f'c{k}'    for k in range(d)]
+d = DogBone.d
 ell_iters = list(df_ell.index)
 print(f"Loaded {len(ell_iters)} ellipsoids from {args.ellipsoid_csv}")
 
 # =========================================================================
-# Load RBF sequence -> list of (iteration, centers, widths, thresh)
+# Load RBF sequence, keeping a separate RBF object for every iteration
 # =========================================================================
 df_rbf = pd.read_csv(args.rbf_csv)
-cen_cols = [f'center_{k}' for k in range(d)]
 rbf_seq = []
-if 'iteration' in df_rbf.columns:
-    for it, g in df_rbf.groupby('iteration', sort=True):
-        rbf_seq.append((it, g[cen_cols].values, g['width'].values,
-                        float(g['thresh'].iloc[0])))
+rbf_iters = []
+param_cols = sorted((col for col in df_rbf.columns if col.startswith('param_')),
+                    key=lambda col: int(col.split('_')[1]))
+if param_cols:
+    if 'iteration' in df_rbf.columns:
+        df_rbf = df_rbf.sort_values('iteration')
+        rbf_iters = df_rbf['iteration'].tolist()
+    else:
+        rbf_iters = list(range(len(df_rbf)))
+    for row in df_rbf[param_cols].to_numpy(dtype=float):
+        rbf = RBF(d)
+        rbf.load_from_row(row)
+        rbf_seq.append(rbf)
 else:
-    print("WARNING: rbf CSV has no 'iteration' column; drawing the final RBF only.")
-    rbf_seq.append((1, df_rbf[cen_cols].values, df_rbf['width'].values,
-                    float(df_rbf['thresh'].iloc[0])))
+    # Convert legacy one-row-per-ball logs to the same params() layout.
+    cen_cols = [f'center_{k}' for k in range(d)]
+    groups = (df_rbf.groupby('iteration', sort=True) if 'iteration' in df_rbf.columns
+              else [(1, df_rbf)])
+    for it, group in groups:
+        row = np.concatenate([group[cen_cols].to_numpy().ravel(),
+                              group['width'].to_numpy(), [group['thresh'].iloc[0]]])
+        rbf = RBF(d)
+        rbf.load_from_row(row)
+        rbf_seq.append(rbf)
+        rbf_iters.append(it)
 print(f"Loaded {len(rbf_seq)} RBF iterates from {args.rbf_csv}")
 
+# =========================================================================
 # =========================================================================
 # True ROA grid (used for the optional shading and the fallback window)
 # =========================================================================
@@ -100,13 +115,6 @@ xgrid = np.linspace(-1.5, 1.5, GRID_N)
 X, Y  = np.meshgrid(xgrid, xgrid)
 pts_flat   = np.stack([X.ravel(), Y.ravel()], axis=1)
 in_dogbone = DogBone._in_dogbone(pts_flat).reshape(X.shape)
-
-
-def rbf_field(centers, widths, pts, shape):
-    diffs    = pts[:, None, :] - centers[None, :, :]
-    sq       = np.sum(diffs ** 2, axis=2)
-    vals     = np.exp(-0.5 * sq / widths[None, :] ** 2)
-    return np.log(np.maximum(vals.sum(axis=1), 1e-15)).reshape(shape)
 
 
 def rbf_bbox(centers, widths, thresh):
@@ -121,9 +129,7 @@ def rbf_bbox(centers, widths, thresh):
 
 
 def get_ellipsoid(row):
-    Q = row[q_cols].values.astype(float).reshape(d, d)
-    c = row[c_cols].values.astype(float)
-    return Q, c
+    return Ellipsoid().load_from_row(row.to_numpy(dtype=float))
 
 
 def square_window(ax, margin=0.1):
@@ -162,21 +168,19 @@ fig, ax = plt.subplots(figsize=(3.0, 3.0))
 # iteration 0 (if logged) is the initial set: dashed black, as in the example
 colored = [it for it in ell_iters if it != 0]
 if 0 in ell_iters:
-    Q0, c0 = get_ellipsoid(df_ell.loc[0])
-    plot_projection(Q0, c0, 1, ax, diml=0, dimh=1, color='k',
-                    linestyle='--', linewidth=0.8, alpha=1.0, zorder=2)
+    ell = get_ellipsoid(df_ell.loc[0])
+    ell.plot(ax, color='k', linestyle = '--', linewidth = 0.8, zorder = 2)
     square_window(ax)                      # window fitted to E0 + 10 % margin
     xl, yl = ax.get_xlim(), ax.get_ylim()
 else:
     xl = yl = None
 
-norm = mpl.colors.Normalize(vmin=min(colored), vmax=max(colored))
+norm = mpl.colors.Normalize(vmin=min(colored or [0]), vmax=max(colored or [1]))
 if args.roa:
     shade_roa(ax)
 for it in colored:
-    Q, c = get_ellipsoid(df_ell.loc[it])
-    plot_projection(Q, c, 1, ax, diml=0, dimh=1, color=CMAP(norm(it)),
-                    linestyle='-', linewidth=0.8, alpha=0.9, zorder=3 + it * 1e-3)
+    ell = get_ellipsoid(df_ell.loc[it])
+    ell.plot(ax, color=CMAP(norm(it)), linestyle = '-', linewidth = 0.8, alpha=0.9, zorder = 3+it*1e-3)
 
 if xl is not None:
     ax.set_xlim(xl); ax.set_ylim(yl)
@@ -188,14 +192,12 @@ finish(fig, ax, norm, 'DogBone_ellipsoid_progression_bare.pdf')
 # Figure 2: RBF progression
 # =========================================================================
 fig, ax = plt.subplots(figsize=(3.0, 3.0))
-its  = [r[0] for r in rbf_seq if r[0] != 0] or [1]
+its = [it for it in rbf_iters if it != 0] or [1]
 norm = mpl.colors.Normalize(vmin=min(its), vmax=max(its) if max(its) > min(its) else min(its) + 1)
 
-# Window: fitted to the initial RBF (iteration 0) if logged, else to all iterates,
-# with a 10 % margin, square. The evaluation grid covers exactly this window,
-# so no level set is clipped by the grid (only by the window itself).
-ref = [r for r in rbf_seq if r[0] == 0] or rbf_seq
-boxes = [rbf_bbox(c, w, t) for (_, c, w, t) in ref]
+# Fit the window to the initial RBF if logged, otherwise to all iterates.
+ref = [rbf for it, rbf in zip(rbf_iters, rbf_seq) if it == 0] or rbf_seq
+boxes = [rbf_bbox(rbf.centers_opt, rbf.widths_opt, rbf.thresh) for rbf in ref]
 lo = np.min([b[0] for b in boxes], axis=0)
 hi = np.max([b[1] for b in boxes], axis=0)
 mid  = 0.5 * (lo + hi)
@@ -203,24 +205,13 @@ half = 0.5 * np.max(hi - lo) * 1.2
 RX0, RX1 = mid[0] - half, mid[0] + half
 RY0, RY1 = mid[1] - half, mid[1] + half
 
-RN = 600
-gx = np.linspace(RX0, RX1, RN)
-gy = np.linspace(RY0, RY1, RN)
-RXg, RYg = np.meshgrid(gx, gy)
-rpts = np.stack([RXg.ravel(), RYg.ravel()], axis=1)
-
 if args.roa:
     shade_roa(ax)
-for it, centers, widths, thresh in rbf_seq:
-    Z = rbf_field(centers, widths, rpts, RXg.shape)
-    # linestyles set explicitly: a negative level (thresh = log 0.25 < 0) is
-    # otherwise drawn dashed by matplotlib's contour defaults.
-    if it == 0:      # initial RBF: dashed black, like the ellipsoid figure
-        ax.contour(RXg, RYg, Z, levels=[thresh], colors=['k'],
-                   linewidths=0.8, linestyles='--', zorder=2)
+for it, rbf in zip(rbf_iters, rbf_seq):
+    if it == 0:
+        rbf.plot(ax, color='k', linestyle='--', linewidth=0.8, zorder=2)
     else:
-        ax.contour(RXg, RYg, Z, levels=[thresh], colors=[CMAP(norm(it))],
-                   linewidths=0.8, linestyles='-', zorder=3)
+        rbf.plot(ax, color=CMAP(norm(it)), linestyle='-', linewidth=0.8, zorder=3)
 
 ax.set_xlim(RX0, RX1)
 ax.set_ylim(RY0, RY1)

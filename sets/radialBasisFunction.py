@@ -18,31 +18,32 @@ class RBF(ParameterizedSet):
         return self.fit_rbf(data, self.num_nballs if num_balls is None else num_balls)
 
     def params(self) -> np.ndarray:
-        """Return flattened centers followed by widths, as used by rbf_eval."""
+        """Return flattened centers, widths, and the threshold."""
         if self.centers_opt is None or self.widths_opt is None:
             raise ValueError("Fit the RBF before accessing parameters")
-        return np.concatenate([self.centers_opt.flatten(), self.widths_opt.flatten()])
+        return np.concatenate([self.centers_opt.flatten(), self.widths_opt.flatten(), [self.thresh]])
 
     def load_from_row(self, row: np.ndarray):
-        """Restore centers and widths from a 1D parameter row without its index.
+        """Restore centers, widths, and threshold from a row without its index.
 
-        Infer the ball count using this set's dimension. The threshold remains
-        the value supplied to the constructor, since params() does not log it.
+        Infer the ball count using this set's dimension and the trailing threshold.
         """
         row = np.asarray(row, dtype=float)
-        if row.ndim != 1 or row.size == 0 or row.size % (self.dimension + 1):
-            raise ValueError("row must be a 1D array with num_balls * (dimension + 1) parameters")
+        if row.ndim != 1 or row.size <= 1 or (row.size - 1) % (self.dimension + 1):
+            raise ValueError("row must be a 1D array with num_balls * (dimension + 1) + 1 parameters")
         if not np.all(np.isfinite(row)):
             raise ValueError("row must contain only finite parameters")
-        num_balls = row.size // (self.dimension + 1)
+        num_balls = (row.size - 1) // (self.dimension + 1)
         split = num_balls * self.dimension
+        print("Num Balls: ", num_balls)
         centers = row[:split].reshape(num_balls, self.dimension).copy()
-        widths = row[split:].copy()
+        widths = row[split:-1].copy()
         if np.any(widths == 0):
             raise ValueError("RBF widths must be nonzero")
         self.centers_opt = centers
         self.widths_opt = widths
         self.num_nballs = num_balls
+        self.thresh = float(row[-1])
         return self
 
     def sample_from(self, N: int, rng: np.random.Generator | None) -> np.ndarray:
@@ -60,7 +61,7 @@ class RBF(ParameterizedSet):
             n_samples += len(accepted)
         return np.vstack(samples) if samples else np.empty((0, self.dimension))
 
-    def plot(self, ax, diml = 0, dimh = 1, alpha = 1.0, color = 'green', **kwargs):
+    def plot(self, ax, diml = 0, dimh = 1, alpha = 1.0, color = 'green', plot_centers = False, **kwargs):
         """Delegate to the existing 2D or 3D plotter using its fixed coordinates."""
         if self.centers_opt is None or self.widths_opt is None:
             raise ValueError("Fit the RBF before plotting")
@@ -70,10 +71,10 @@ class RBF(ParameterizedSet):
         n_lines, n_collections = len(ax.lines), len(ax.collections)
         if dimensions == 2:
             self.plot_2D_rbf(ax, -4, 4, -4, 4, self.centers_opt, self.widths_opt,
-                             colors=[color])
+                             colors=[color], plot_centers=plot_centers)
         else:
             self.plot_3D_rbf(ax, -4, 4, -4, 4, self.centers_opt, self.widths_opt,
-                             data=self.centers_opt, colors=[color])
+                             data=self.centers_opt, colors=[color], plot_centers=plot_centers)
         for line in ax.lines[n_lines:]:
             line.set(alpha=alpha, **kwargs)
         for collection in ax.collections[n_collections:]:
@@ -105,7 +106,7 @@ class RBF(ParameterizedSet):
         z = np.array([z])
         return z
 
-    def plot_2D_rbf(self, ax, xmin, xmax, ymin, ymax, centers, widths, colors=['black']):
+    def plot_2D_rbf(self, ax, xmin, xmax, ymin, ymax, centers, widths, colors=['black'], plot_centers = True):
         xgrid = np.linspace(xmin, xmax,100)
         ygrid = np.linspace(ymin, ymax,100)
         nx = np.size(xgrid)
@@ -119,10 +120,11 @@ class RBF(ParameterizedSet):
                 z = np.vstack([x,y]).T
                 Z[x_idx, y_idx] = self.rbf_eval(self.num_nballs, z, self.dimension, centers=centers, widths=widths)
         ax.contour(X, Y, Z, levels=[self.thresh], colors=colors)
-        ax.plot(centers[:,0], centers[:,1], color=colors[0], marker='o', markerfacecolor='None', markersize=10, linestyle='None')
+        if(plot_centers):
+            ax.plot(centers[:,0], centers[:,1], color=colors[0], marker='o', markerfacecolor='None', markersize=10, linestyle='None')
 
 
-    def plot_3D_rbf(self, ax, xmin, xmax, ymin, ymax, centers, widths, data, colors=['black']):
+    def plot_3D_rbf(self, ax, xmin, xmax, ymin, ymax, centers, widths, data, colors=['black'], plot_centers = True):
         xgrid = np.linspace(xmin, xmax,100)
         ygrid = np.linspace(ymin, ymax,100)
         nx = np.size(xgrid)
@@ -136,7 +138,8 @@ class RBF(ParameterizedSet):
                 [xopt, fopt, it, funclls, warnflg] =  scipy.optimize.fmin((lambda z : -(self.rbf_eval(self.num_nballs, self.rbf_stack(z, x, y), self.dimension, centers=centers, widths=widths))), [np.mean(data[:, 1])], full_output=True, disp=False)
                 Z[x_idx, y_idx]  = np.float64(-fopt)
         ax.contour(X, Y, Z, levels=[self.thresh], colors=colors)
-        ax.plot(centers[:,0], centers[:,2], color=colors[0], marker='o', markerfacecolor='None', markersize=10, linestyle='None')
+        if(plot_centers):
+            ax.plot(centers[:,0], centers[:,2], color=colors[0], marker='o', markerfacecolor='None', markersize=10, linestyle='None')
         ax.set_xlabel('$x$')
         ax.set_ylabel('$y$')
 

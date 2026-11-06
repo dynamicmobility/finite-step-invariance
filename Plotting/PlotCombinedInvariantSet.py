@@ -43,7 +43,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from matplotlib.lines import Line2D
-from ellipsoids import Ellipsoid, sample_from, plot_projection
+from sets.ellipsoid import Ellipsoid, sample_from, plot_projection
 
 # =========================================================================
 # Paper style
