@@ -64,3 +64,7 @@ noninteractive plotting backend and limit BLAS/OpenMP threads to one each.
 JAX and solver runtimes may still use additional threads. Results are printed
 as trials finish; the summary CSV stays sorted by the original trial order.
 Only the parent process writes the summary CSV.
+
+Sweep CSVs also include the final set's `params()` values in numeric columns
+`param_0`, `param_1`, etc., in the same order accepted by `load_from_row`.
+Failed trials leave parameter cells blank.
