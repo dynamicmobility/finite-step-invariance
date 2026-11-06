@@ -34,7 +34,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
-from ellipsoids import Ellipsoid, sample_from
+from sets.ellipsoid import Ellipsoid, sample_from
 
 # =========================================================================
 # System

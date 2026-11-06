@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from ellipsoids import plot_projection
+from sets.ellipsoid import plot_projection
 
 # =========================================================================
 # Paper style  (matches PlotAlgorithmSteps.py)

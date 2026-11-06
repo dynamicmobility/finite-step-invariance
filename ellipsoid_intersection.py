@@ -1,5 +1,5 @@
 import numpy as np
-from ellipsoids import Ellipsoid, plot_ellipse 
+from sets.ellipsoid import Ellipsoid, plot_ellipse 
 from matplotlib import pyplot as plt
 
 def in_ellipsoid(A, b, xs):

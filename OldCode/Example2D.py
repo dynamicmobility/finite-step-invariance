@@ -5,7 +5,7 @@
 import numpy as np
 from scipy.linalg import sqrtm
 from matplotlib import pyplot as plt
-from ellipsoids import p_ball, project_ellipsoid_to_2d, plot_ellipse, in_ellipsoid
+from sets.ellipsoid import p_ball, project_ellipsoid_to_2d, plot_ellipse, in_ellipsoid
 
 # This is the A-norm with offset v 
 def h(x, A, v):

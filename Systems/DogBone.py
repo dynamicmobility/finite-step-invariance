@@ -1,20 +1,31 @@
 import numpy as np
-from ellipsoids import Ellipsoid
-from radialBasisFunctions import RBF
+from sets.ellipsoid import Ellipsoid, plot_projection
+from sets.radialBasisFunction import RBF
+from sets.parameterized_set import ParameterizedSet
+from typing import Literal
 
 d = 2
 
-# T-bone: two circle centers and radii
+# Dogbone: two circle centers and radii
 c1 = np.array([-0.6, 0.0])
 c2 = np.array([ 0.6, 0.0])
 R  = 0.6      # radius of each lobe
 PUSH = 1.3    # expansion factor outside the t-bone
+
+# 1.01 converges in 66 iterations
+# 1.1 converges in 18 iterations
+# 1.3 converges in 6 iterations
 
 def _in_dogbone(x):
     """Boolean mask: True if x is inside either lobe. x: (N, 2)"""
     in_c1 = np.sum((x - c1)**2, axis=1) <= R**2
     in_c2 = np.sum((x - c2)**2, axis=1) <= R**2
     return in_c1 | in_c2
+
+def _in_dynamics(x, nearest):
+    # A = np.array([[0, -1], [1, 0]])
+    A = np.array([[0.5, 0], [0, 0.5]])
+    return (A@(x-nearest).T).T + nearest
 
 def P_batch(x):
     """
@@ -31,18 +42,24 @@ def P_batch(x):
     d1         = np.sum((x - c1)**2, axis=1)
     d2         = np.sum((x - c2)**2, axis=1)
     nearest    = np.where(d1[:, None] < d2[:, None], c1, c2)   # (N, 2)
-    out[inside] = nearest[inside] + 0.5 * (x[inside] - nearest[inside])
+    # out[inside] = x[inside]  # Points inside do not move
+    # out[inside] = x[inside] + 0.5 * (nearest[inside] - x[inside])
+    out[inside] = _in_dynamics(x[inside], nearest[inside])
 
     # Outside: push away from origin
     out[~inside] *= PUSH
 
     return out
 
-def initial_guess():
+def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator, N = 100):
     """Single RBF centered at origin as initial guess."""
-    E0   = Ellipsoid(d)
-    pts  = np.random.uniform(low=-1.5, high=1.5, size=(200, d))
-    E0.fit_p_ball(pts, 2)
+    if(set_type == 'ell'):
+        E0  = Ellipsoid(d)
+        E0.load_from_row(np.concat([np.eye(2,2).flatten(), np.array([0, 0])]))
+    elif(set_type == 'rbf'):
+        E0  = RBF(d)
+        pts  = rng.uniform(low=-2., high=2., size=(N, d))
+        E0.fit(pts, 2)
     return E0
 
 def initial_guess_rbf():
@@ -50,6 +67,11 @@ def initial_guess_rbf():
     E0 = RBF(d, np.log(0.25))
     E0 = E0.fit_rbf(pts, 2)
     return E0
+
+def plot_true(ax, diml=0, dimh=1, **kwargs):
+    """Plot the true ROA (union of two discs) on the given axes."""
+    plot_projection(np.eye(2), c1, R, ax, diml, dimh, alpha=0.75, color='green', **kwargs)
+    plot_projection(np.eye(2), c2, R, ax, diml, dimh, alpha=0.75, color='green', **kwargs)
 
 if __name__ == '__main__':
     # Tests

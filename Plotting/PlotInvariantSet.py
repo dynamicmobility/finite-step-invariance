@@ -30,7 +30,7 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker
-from ellipsoids import Ellipsoid, sample_from, plot_projection
+from sets.ellipsoid import Ellipsoid, sample_from, plot_projection
 
 # =========================================================================
 # Paper style  (matches PlotAlgorithmSteps.py / PlotAlgorithmSets.py)
