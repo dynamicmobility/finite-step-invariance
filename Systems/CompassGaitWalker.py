@@ -54,7 +54,12 @@ class CompassGaitWalker:
         B = jnp.array([[1],
                       [-1]])
         qd = jnp.array([[tswd], [tstd]])
-        qdd = self.inv_analytic(M)@(B*u - C@qd - G)
+        # L = jnp.linalg.cholesky(M) # Lower Triangular Matrix
+        net_force = B*u - C@qd - G
+
+        qdd = self.inv_analytic(M)@net_force
+        # y = jax.lax.linalg.triangular_solve(L, net_force.flatten(), lower=True, left_side=True)
+        # qdd = jax.lax.linalg.triangular_solve(L, y, lower=True, left_side=False)
 
         return jnp.hstack((qd.flatten(), qdd.flatten()))
 
