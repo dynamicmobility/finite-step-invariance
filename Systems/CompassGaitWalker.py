@@ -9,6 +9,9 @@ from equinox import filter_jit
 import optimistix as optx
 from typing import Literal
 
+jax.config.update("jax_platforms", "cpu")
+jax.config.update("jax_enable_x64", True)
+
 # Dynamics taken from Hybrid Limit Cycles of Walking Robots 
 # Underactuated Robotics (https://underactuated.mit.edu/simple_legs.html) Also uses these dynamics but the coordinates are flipped
 d = 3
@@ -54,7 +57,12 @@ class CompassGaitWalker:
         B = jnp.array([[1],
                       [-1]])
         qd = jnp.array([[tswd], [tstd]])
-        qdd = self.inv_analytic(M)@(B*u - C@qd - G)
+        # L = jnp.linalg.cholesky(M) # Lower Triangular Matrix
+        net_force = B*u - C@qd - G
+
+        qdd = self.inv_analytic(M)@net_force
+        # y = jax.lax.linalg.triangular_solve(L, net_force.flatten(), lower=True, left_side=True)
+        # qdd = jax.lax.linalg.triangular_solve(L, y, lower=True, left_side=False)
 
         return jnp.hstack((qd.flatten(), qdd.flatten()))
 
@@ -93,7 +101,7 @@ class CompassGaitWalker:
 # System and ODE solver
 # =========================================================================
 sys    = CompassGaitWalker(m=5., mh=10., a=0.5, b=0.5, gamma=0.0525)
-x_star = np.array([-0.21876908, 0.32376908, 1.8083619, 1.49571536])  # fixed point
+x_star = np.array([-0.21877462,  0.32377462,  1.80807316,  1.49571728])
 assert jnp.abs(sys.guard(0, x_star)) < 1e-5, "x_star is not on the guard"
 
 term   = ODETerm(sys.f)
@@ -105,6 +113,7 @@ event  = Event(sys.guard, optx.Newton(5e-7, 5e-7, optx.rms_norm), direction=True
 # Guard surface chart: 3-D parameterisation of the 4-D guard surface
 #   full_state = guard_surface_chart @ guard_coords + x_star
 # =========================================================================
+c                  = np.array([0., 0., 0.])
 _c                 = jnp.array([[1, 1, 0, 0]]).T
 _guard_chart       = jnp.array([[1, -1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]).T
 _guard_chart_inv   = jnp.linalg.inv(jnp.hstack((_guard_chart, _c)))
@@ -175,6 +184,9 @@ def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator, str
 # eigs = np.abs(np.linalg.eigvals(J))
 # print("Jacobian eigenvalues:", eigs)
 # assert np.all(eigs < 1), "Limit cycle is not stable — Lyapunov equation has no PD solution"
+
+def plot_true(ax, diml=0, dimh=1, **kwargs):
+    pass
 
 
 if __name__ == "__main__":

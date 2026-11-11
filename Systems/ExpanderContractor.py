@@ -5,19 +5,19 @@ from matplotlib import pyplot as plt
 from typing import Literal
 
 d = 2
-v = np.array([[1], [1]])
+c = np.array([[1], [1]])
 Q = np.array([[2, 1],
               [1, 1]])
 
 assert np.all(np.linalg.eigvals(Q) > 0)
 
 # This is the Q-norm with offset v 
-def _h(x, Q, v):
-    return np.diag((x-v).T@Q@(x-v))
+def _h(x, Q, c):
+    return np.diag((x-c).T@Q@(x-c))
 
 # This is a toy step-to-step map (contracts within the Q-norm unit ball but expands otherwise)
 def P_batch(x):
-    return ((x.T-v)*_h(x.T, Q, v) + v).T
+    return ((x.T-c)*_h(x.T, Q, c) + c).T
 
 def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator, N = 100):
     if(set_type == 'ell'):
@@ -38,7 +38,7 @@ def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator, N =
 #     return E0
 
 def plot_true(ax, diml=0, dimh=1, **kwargs):
-    plot_projection(Q, v.flatten(), 1, ax, diml, dimh, alpha=0.75, color='green', **kwargs)
+    plot_projection(Q, c.flatten(), 1, ax, diml, dimh, alpha=0.75, color='green', **kwargs)
 
 if __name__ == '__main__':
     # Tests to make sure dimensions make sense
