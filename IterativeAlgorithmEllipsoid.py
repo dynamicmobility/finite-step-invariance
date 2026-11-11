@@ -22,8 +22,8 @@ N        = 2000   # samples per iteration
 MAX_ITER = 200
 PLOT     = False  # Shows the plot every iteration
 RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast
-EPS_THRESHOLD = 0.00 # User-defined accuracy threshold for convergence
-SAVE_DATA = False # Save convergence data to CSVs
+EPS_THRESHOLD = 0.009 # User-defined accuracy threshold for convergence
+SAVE_DATA = True # Save convergence data to CSVs
 
 # =========================================================================
 # Model Setup
@@ -39,7 +39,7 @@ sys = ExpanderContractor
 
 # Initial ellipsoid  E0 = { x : ||A0 x - b0|| <= 1 }
 # Initial guess is system-dependent
-E0      = sys.initial_guess()
+E0      = sys.initial_guess('ell', np.random.default_rng())
 
 print(f"Initial ellipsoid volume: {E0.volume():.6e}")
 
@@ -62,7 +62,7 @@ if(EPS_THRESHOLD < epsilon_min):
 for iteration in range(MAX_ITER):
 
     # --- Line 6-7: sample N points from E --------------------------------
-    Xi = Ei.sample_from(N)          # (N, d)
+    Xi = Ei.sample_from(N, np.random.default_rng())          # (N, d)
 
     # --- Line 9: apply Poincaré return map --------------------------------
     Xi_prime = sys.P_batch(Xi)             # (N, d)
@@ -108,12 +108,12 @@ for iteration in range(MAX_ITER):
         fig, ax = plt.subplots()
         plot_projection(Ei.Q, Ei.c.flatten(), 1, ax, color='blue',   label='$\\mathcal{E}_i$')
 
-    distance_to_reject = Ei.mahalanobis_distance(VZ.T)
+    distance_to_reject = Ei._mahalanobis_distance(VZ.T)
     # print(min(distance_to_reject)) # If this is > 1 then there are points in V union Z that are inside the new ellipsoid
     # Rescale MVEE
     if RESCALE:
         Ei.scale(min(distance_to_reject)-1e-5)
-        distance_to_reject = Ei.mahalanobis_distance(VZ.T)
+        distance_to_reject = Ei._mahalanobis_distance(VZ.T)
         # print(distance_to_reject)
         assert min(distance_to_reject) > 1
         assert np.all(Ei.contains_points(VZ) == False)
@@ -163,7 +163,7 @@ print(f"Volume: {E_star.volume():.6e}")
 # Verification: confirm P(x) ∈ E*  for  N_verify  samples from  E*
 # =========================================================================
 N_verify = 5000
-pts_v    = E_star.sample_from(N_verify)
+pts_v    = E_star.sample_from(N_verify, np.random.default_rng())
 Ppts_v   = sys.P_batch(pts_v)
 n_esc    = int(np.sum(~E_star.contains_points(Ppts_v)))
 print(f"\nVerification ({N_verify} samples): {n_esc} escaped "

@@ -8,7 +8,7 @@ from probabilistic_bounds import binomial_tail
 from datetime import datetime
 import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Systems'))
-from Systems import DogBone
+from Systems import DogBone, ExpanderContractor
 import jax
 import jax.numpy as jnp
 print("Using backend: ", jax.default_backend())
@@ -27,8 +27,7 @@ EPS_THRESHOLD = 0.05 # User-defined accuracy threshold for convergence
 # Model Setup
 # =========================================================================
 
-sys = DogBone
-
+sys = ExpanderContractor
 # =========================================================================
 # RBF log: one block of rows per iteration, rewritten after every fit so a
 # crash / Ctrl-C does not lose the history.
@@ -57,7 +56,7 @@ def log_rbf(it, rbf):
 
 # Initial ellipsoid  E0 = { x : ||A0 x - b0|| <= 1 }
 # Initial guess is system-dependent
-E0 = sys.initial_guess_rbf()
+E0 = sys.initial_guess('rbf', np.random.default_rng())
 log_rbf(0, E0)
 
 # print(f"Initial ellipsoid volume: {E0.volume():.6e}")
@@ -70,7 +69,7 @@ Ei = E0
 for iteration in range(MAX_ITER):
 
     # --- Line 6-7: sample N points from E --------------------------------
-    Xi = Ei.sample_from(N)        # (N, d)
+    Xi = Ei.sample_from(N, np.random.default_rng())        # (N, d)
 
     # --- Line 9: apply Poincaré return map --------------------------------
     Xi_prime = sys.P_batch(Xi)             # (N, d)
@@ -100,7 +99,7 @@ for iteration in range(MAX_ITER):
     VZ   = np.vstack((V,Z))
     Ei   = RBF(sys.d, np.log(0.25))
     try:
-        Ei.fit(U, 3)
+        Ei.fit(U, 1)
     except np.linalg.LinAlgError:
         print("W not well-conditioned, resampling")
         continue

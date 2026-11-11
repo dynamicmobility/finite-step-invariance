@@ -30,7 +30,7 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker
-from sets.ellipsoid import Ellipsoid, sample_from, plot_projection
+from sets.ellipsoid import Ellipsoid, plot_projection
 
 # =========================================================================
 # Paper style  (matches PlotAlgorithmSteps.py / PlotAlgorithmSets.py)
@@ -104,7 +104,7 @@ sys_name = Path(args.csv).stem.split('_ellipsoid_log_')[0]
 sys_mod  = importlib.import_module(sys_name)
 
 np.random.seed(42)
-Xi       = sample_from(E_star, N).T          # (N, d)  rows = points
+Xi       = E_star.sample_from(N, np.random.default_rng())         # (N, d)  rows = points
 Xi_prime = sys_mod.P_batch(Xi)               # (N, d)
 in_E     = E_star.contains_point(Xi_prime.T) # (N,) bool
 

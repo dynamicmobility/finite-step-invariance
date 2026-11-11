@@ -57,7 +57,7 @@ def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator, N =
         E0  = Ellipsoid(d)
         E0.load_from_row(np.concat([np.eye(2,2).flatten(), np.array([0, 0])]))
     elif(set_type == 'rbf'):
-        E0  = RBF(d)
+        E0  = RBF(d, np.log(0.25))
         pts  = rng.uniform(low=-2., high=2., size=(N, d))
         E0.fit(pts, 2)
     return E0
