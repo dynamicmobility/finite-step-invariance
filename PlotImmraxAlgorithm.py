@@ -101,7 +101,7 @@ def load_guard_intersections(path):
 def load_iterative_ellipsoid(path, origin, chart):
     """Load the last logged ellipsoid and express it in the plotting chart."""
     from Systems.CompassGaitWalker import x_star, _guard_chart
-
+ 
     rows = np.loadtxt(path, delimiter=",", skiprows=1, ndmin=2)
     ellipsoid = Ellipsoid(3).load_from_row(rows[-1, 1:])
     if ellipsoid.dimension != 3:
@@ -114,6 +114,12 @@ def load_iterative_ellipsoid(path, origin, chart):
     inverse = np.linalg.inv(transform)
     Q = inverse.T @ ellipsoid.Q @ inverse
     center = transform @ ellipsoid.c.flatten() + offset
+    np.set_printoptions(precision=5, suppress=False, linewidth=120)
+    print(f"[ellipsoid] log      = {path}  ({len(rows)} rows, using the last)")
+    print(f"[ellipsoid] centre in iterative coords = {ellipsoid.c.flatten()}")
+    print(f"[ellipsoid] centre in plot coords      = {center}")
+    print(f"[ellipsoid] chart == _guard_chart?  {np.allclose(chart, np.asarray(_guard_chart))}")
+    print(f"[ellipsoid] transform =\n{transform}\n[ellipsoid] offset = {offset}")
     return Ellipsoid(3).load_from_row(np.concatenate((Q.flatten(), center)))
 
 

@@ -27,7 +27,6 @@ import matplotlib.ticker
 from sets.ellipsoid import Ellipsoid, plot_projection
 from sets.radialBasisFunction import RBF
 from Systems import DogBone
-
 # =========================================================================
 # Paper style  (identical to PlotAlgorithmSets.py)
 # =========================================================================
@@ -56,7 +55,7 @@ mpl.rcParams.update({
 _plasma   = mpl.colormaps['plasma']
 C_ELLIPSE = _plasma(0.1)           # dark purple, solid
 C_RBF     = '#FF8C00'              # bright orange, dashed
-C_ROA     = '#FBDDE6'              # very light pink — true ROA fill (drawn opaque)
+C_ROA     ='#FBDDE6'              # very light pink — true ROA fill (drawn opaque)
 
 # =========================================================================
 # Arguments
@@ -79,10 +78,17 @@ print(f"Loaded ellipsoid E* from {args.ellipsoid_csv}")
 # =========================================================================
 # Load final RBF
 # =========================================================================
-df_rbf = pd.read_csv(args.rbf_csv, index_col='iteration')
+df_rbf = pd.read_csv(args.rbf_csv)
+last = df_rbf[df_rbf['iteration'] == df_rbf['iteration'].max()].sort_values('ball')
+
+row = np.concatenate([
+    last[['center_0', 'center_1']].to_numpy().ravel(),  # all centers
+    last['width'].to_numpy(),                            # all widths
+    [last['thresh'].iloc[0]],                            # threshold (same on every row)
+])
 
 rbf = RBF(d)
-rbf.load_from_row(df_rbf.iloc[-1])
+rbf.load_from_row(row)
 print(f"Loaded RBF ({len(rbf.centers_opt)} balls) from {args.rbf_csv}")
 
 # =========================================================================
@@ -114,10 +120,10 @@ fig, ax = plt.subplots(figsize=(3.0, 3.0))
 
 # True ROA — filled
 ax.contourf(X, Y, in_dogbone.astype(float),
-            levels=[0.5, 1.5], colors=[C_ROA], alpha=0.3, zorder=1)
+            levels=[0.5, 1.5], colors=[C_ROA], alpha=0.5, zorder=1)
 
 # RBF boundary
-rbf.plot(ax, plot_centers=False, colors=C_RBF, lineewidths=1.0, zorder=3)
+rbf.plot(ax, plot_centers=False, color=C_RBF, lineewidths=1.0, zorder=3)
 
 # Ellipsoid boundary
 E_star.plot(ax, alpha = 0.9, color = C_ELLIPSE, linestyle = '-', linewidth=1.0, zorder = 4)
