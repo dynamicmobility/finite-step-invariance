@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import eigvalsh
 from sets.ellipsoid import Ellipsoid, plot_projection
 from sets.radialBasisFunction import RBF
 from matplotlib import pyplot as plt
@@ -19,10 +20,22 @@ def _h(x, Q, c):
 def P_batch(x):
     return ((x.T-c)*_h(x.T, Q, c) + c).T
 
-def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator, N = 100):
+def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator = None, N = 100):
     if(set_type == 'ell'):
         E0  = Ellipsoid(d)
-        E0.load_from_row(np.concat([0.1*np.eye(2,2).flatten(), np.array([0, 0])]))
+        if(rng is not None):
+            c0 = rng.uniform(low=-1, high=1, size=(2,1))
+            M = rng.uniform(low=-1, high=1, size=(2,2))
+            Q0 = M.T@M
+            # Rescale to contain E(Q, c), accounting for the center offset.
+            delta = c - c0
+            a = np.sqrt((delta.T @ Q0 @ delta).item())
+            b = np.sqrt(eigvalsh(Q0, Q)[-1])
+            wiggle = rng.uniform(low=1.0, high=2.0)
+            Q0 = Q0 / (wiggle*(a + b)**2)
+            E0.load_from_row(np.concat([Q0.flatten(), c0.flatten()]))
+        else:
+            E0.load_from_row(np.concat([0.1*np.eye(2,2).flatten(), np.array([0, 0])]))
     elif(set_type == 'rbf'):
         E0  = RBF(d, 2)
         rng = np.random.default_rng() if rng is None else rng
