@@ -43,7 +43,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from matplotlib.lines import Line2D
-from sets.ellipsoid import Ellipsoid, sample_from, plot_projection
+from sets.ellipsoid import Ellipsoid, plot_projection
 
 # =========================================================================
 # Paper style
@@ -104,25 +104,32 @@ parser.add_argument('--width',   type=float, default=6.0,  help='figure width in
 args = parser.parse_args()
 
 # =========================================================================
-# Load ellipsoid sequence
+# Load ellipsoid sequence  (columns: iteration, param_0 .. param_{k-1})
 # =========================================================================
-df     = pd.read_csv(args.csv, index_col='iteration')
-d      = sum(1 for col in df.columns if col.startswith('c'))
-q_cols = [f'q{i}{j}' for i in range(d) for j in range(d)]
-c_cols = [f'c{k}'    for k in range(d)]
+df = pd.read_csv(args.csv, index_col='iteration')
+p_cols = [c for c in df.columns if c.startswith('param_')]
+n_bad = len(df) - len(df.dropna(subset=p_cols))
+if n_bad:
+    print(f"Dropping {n_bad} incomplete row(s) from the log")
+df = df.dropna(subset=p_cols)
+
+d      = Ellipsoid.get_d_from_row_length(len(p_cols))
 iters  = list(df.index)
 
 
 def get_qc(it):
-    row = df.loc[it]
-    return (row[q_cols].values.astype(float).reshape(d, d),
-            row[c_cols].values.astype(float))
+    row = df.loc[it, p_cols].values.astype(float)
+    Q = row[:d * d].reshape(d, d)
+    c = row[d * d:]
+    return Q, c
 
 
 Q_star, c_star = get_qc(iters[-1])
-E_star   = Ellipsoid(d)
+Q_star = (Q_star + Q_star.T) / 2
+E_star = Ellipsoid(d).load_from_row(np.concatenate([Q_star.ravel(), c_star]))
 E_star.Q = Q_star
 E_star.c = c_star.reshape(d, 1)
+print(f"Volume of E*: {E_star.volume():.6g}")
 
 # Iterates to draw
 has_E0  = 0 in iters
@@ -141,20 +148,15 @@ print(f"colour bar: iteration {norm.vmin:g} .. {norm.vmax:g}")
 sys_name = Path(args.csv).stem.split('_ellipsoid_log_')[0]
 sys_mod  = importlib.import_module(sys_name)
 
-np.random.seed(42)
-Xi       = sample_from(E_star, args.n).T          # (N, d)
-Xi_prime = sys_mod.P_batch(Xi)                    # (N, d)
-in_E     = E_star.contains_point(Xi_prime.T)      # (N,) bool
+rng      = np.random.default_rng(42)
+Xi       = np.real(E_star.sample_from(args.n, rng))   # (N, d)
+Xi_prime = sys_mod.P_batch(Xi)                        # (N, d)
+in_E     = E_star.contains_points(Xi_prime)           # (N,) bool
 
-U = Xi[in_E,  :]           # preimages whose return lands INSIDE  E*
-Z = Xi[~in_E, :]           # preimages whose return lands OUTSIDE E*
-W = Xi_prime[in_E,  :]     # contained return points
-V = Xi_prime[~in_E, :]     # escaped return points
-
-print(f"N={args.n}  |U|={in_E.sum()}  |Z|={(~in_E).sum()}  "
-      f"|W|={in_E.sum()}  |V|={(~in_E).sum()}  "
-      f"escape fraction={100 * (~in_E).mean():.1f}%")
-
+U = Xi[in_E,  :]
+Z = Xi[~in_E, :]
+W = Xi_prime[in_E,  :]
+V = Xi_prime[~in_E, :]
 # =========================================================================
 # Figure geometry
 # =========================================================================
