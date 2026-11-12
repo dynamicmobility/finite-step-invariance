@@ -339,7 +339,21 @@ PLOT_EVERY = 5
 
 fig, ax = plt.subplots()
 
-mc_x0s = nt0.sample_boundary(jax.random.PRNGKey(21), 50)
+mc_x0s = nt0_final.sample_boundary(jax.random.PRNGKey(21), 50)
+term   = ODETerm(sys.f)
+solver = Euler()
+u      = 0.0
+event  = Event(sys.guard, optx.Newton(5e-7, 5e-7, optx.rms_norm), direction=True)
+
+def solve_plot_trajectory(x_init):
+    # Each initial state needs its own solve and guard-crossing time.
+    return diffeqsolve(term, solver, t0=0, t1=2, dt0=dt,
+                      y0=x_init, args=u, event=event,
+                      saveat=SaveAt(t0=True, t1=True, steps=True))
+
+
+traj = jax.vmap(solve_plot_trajectory)(mc_x0s)
+
 
 for i in range(0,len(nt_traj_final),PLOT_EVERY) :
     try :
@@ -349,6 +363,22 @@ for i in range(0,len(nt_traj_final),PLOT_EVERY) :
         nt.plot_projection(ax, 1, 3, color='orange')
     except :
         pass
-ax.plot(nt_traj_final[:, 0], nt_traj_final[:, 2])
-ax.plot(nt_traj_final[:, 1], nt_traj_final[:, 3])
+ax.plot(nt_traj_final[:, 0], nt_traj_final[:, 2], color='b',
+        label='Euler nominal (swing)')
+ax.plot(nt_traj_final[:, 1], nt_traj_final[:, 3], color='orange',
+        label='Euler nominal (stance)')
+for index, (times, states) in enumerate(zip(np.asarray(traj.ts), np.asarray(traj.ys))):
+    # SaveAt(steps=True) pads unused slots with infinity after termination.
+    valid = np.isfinite(times) & np.all(np.isfinite(states), axis=1)
+    states = states[valid]
+    ax.plot(states[:, 0], states[:, 2], color='crimson', linestyle='--', alpha=.4,
+            label='Dopri8 samples (swing)' if index == 0 else None)
+    ax.plot(states[:, 1], states[:, 3], color='green', linestyle='--', alpha=.4,
+            label='Dopri8 samples (stance)' if index == 0 else None)
+ax.set_xlabel(r'$\theta$ (rad)')
+ax.set_ylabel(r'$\dot{\theta}$ (rad/s)')
+ax.set_title('Euler normotope tube and Dopri8 sample trajectories')
+ax.grid(True, alpha=.3)
+ax.legend()
+fig.tight_layout()
 plt.show()
