@@ -45,10 +45,11 @@ def main(args):
     show_plots = not getattr(args, "no_plot", False)
     save_data = getattr(args, "save_data", SAVE_DATA)
     sys = importlib.import_module(SYSTEMS[args.system])
+    random_guess = args.random_guess
     print("Using backend: ", jax.default_backend())
     N = args.N
     threshold = args.eps_thresh
-    E0 = sys.initial_guess(args.set_type, rng=rng, N=N)
+    E0 = sys.initial_guess(args.set_type, rng=rng if random_guess else None, N=N)
     Ei = E0
 
     log_eps  = []
@@ -243,6 +244,8 @@ def build_parser():
     parser.add_argument('--save-data', '--save_data', action='store_true', default=SAVE_DATA,
                         help='Save per-step parameters, convergence data, and final plot')
     parser.add_argument('--no-plot', action='store_true', help='Skip interactive plots')
+    parser.add_argument('--random-guess', '--random_guess', action='store_true', default=False,
+                        help='Randomize the initial guess')
     return parser
 
 
