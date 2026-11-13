@@ -33,12 +33,6 @@ SYSTEMS = {
 }
 
 
-
-
-def plot_set(set_, ax, diml=0, dimh=1, color='blue', label=None, **kwargs):
-    return set_.plot(ax, diml=diml, dimh=dimh, color=color, label=label, **kwargs)
-
-
 def main(args):
     rng = np.random.default_rng(args.seed)
     max_iter = getattr(args, "max_iter", MAX_ITER)
@@ -99,22 +93,21 @@ def main(args):
         # fit MVEE to W (NOT UNIONED WITH U)
         WU   = np.vstack((W,U))
         VZ   = np.vstack((V,Z))
-        candidate = (Ellipsoid(sys.d) if args.set_type == 'ell'
+        Ei = (Ellipsoid(sys.d) if args.set_type == 'ell'
                      else RBF(sys.d))
         try:
-            candidate.fit(U) # Fits to preimage of returning points
+            Ei.fit(U) # Fits to preimage of returning points
         except np.linalg.LinAlgError:
             print("Fit not well-conditioned, resampling")
             continue
-        Ei = candidate
         # Ei.fit(WU, 2)
         if PLOT and show_plots:
             fig, ax = plt.subplots()
-            plot_set(Ei, ax, color='blue',   label='$\\mathcal{E}_i$')
+            Ei.plot(ax, diml=0, dimh=1, color='blue',   label='$\\mathcal{E}_i$')
 
             # fig, ax = plt.subplots()
             # Blue goes to Green, Red goes to Yellow
-            plot_set(E0, ax, color='orange', label='$\\mathcal{E}_0$')
+            E0.plot(ax, diml=0, dimh=1, color='orange', label='$\\mathcal{E}_0$')
             ax.scatter(U[:, 0], U[:, 1], c='blue',  s=8, label='$\\mathcal{U}$')
             ax.scatter(W[:, 0], W[:, 1], c='green', s=8, marker='x', label='$\\mathcal{W}$')
             ax.scatter(Z[:, 0], Z[:, 1], c='red',   s=8, label='$\\mathcal{Z}$')
@@ -153,12 +146,13 @@ def main(args):
     # =========================================================================
     # Verification: confirm P(x) ∈ E*  for  N_verify  samples from  E*
     # =========================================================================
-    N_verify = getattr(args, "n_verify", 5000)
+    N_verify = args.n_verify
     pts_v    = E_star.sample_from(N_verify, rng=rng)
     Ppts_v   = sys.P_batch(pts_v)
     n_esc    = int(np.sum(~E_star.contains_points(Ppts_v)))
     print(f"\nVerification ({N_verify} samples): {n_esc} escaped "
         f"({100*n_esc/N_verify:.2f}%)")
+    print(f"epsilon*={binomial_tail(n_esc, N_verify)}")
     print("PASS" if n_esc/N_verify < threshold else "FAIL — Error rate too high")
 
     result = {
@@ -174,6 +168,7 @@ def main(args):
         'verification_samples': N_verify,
         'verification_escapes': n_esc,
         'verification_error_rate': n_esc / N_verify,
+        'epsilon_star': binomial_tail(n_esc, N_verify),
     }
     result.update({f'param_{k}': float(value)
                    for k, value in enumerate(np.asarray(E_star.params()).ravel())})
@@ -193,9 +188,9 @@ def main(args):
         if len(pairs) == 1:
             axes = [axes]
         for ax, (i, j) in zip(axes, pairs):
-            plot_set(E_star, ax,
+            E_star.plot( ax,
                             diml=i, dimh=j, color='blue', label='$\\mathcal{E}^*$')
-            plot_set(E0, ax,
+            E0.plot( ax,
                             diml=i, dimh=j, color='orange', linestyle='--', label='$\\mathcal{E}_0$')
             if hasattr(sys, "plot_true"):
                 sys.plot_true(ax, diml=i, dimh=j, label="True")
@@ -239,7 +234,7 @@ def build_parser():
     parser.add_argument('--seed', type=int, default=None, help='Random seed for repeatable performance across runs')
     parser.add_argument('--max-iter', type=int, default=MAX_ITER,
                         help='Maximum iterations per trial (default: %(default)s)')
-    parser.add_argument('--n-verify', type=int, default=5000,
+    parser.add_argument('--n-verify', type=int, default=N,
                         help='Post-hoc verification sample count (default: %(default)s)')
     parser.add_argument('--save-data', '--save_data', action='store_true', default=SAVE_DATA,
                         help='Save per-step parameters, convergence data, and final plot')

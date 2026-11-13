@@ -13,7 +13,7 @@ class RBF(ParameterizedSet):
         self.widths_opt = None
         self.thresh = thresh
 
-    def fit(self, data, num_balls=2):
+    def fit(self, data, num_balls=None):
         """Fit row-wise data, using the current ball count by default."""
         return self.fit_rbf(data, self.num_nballs if num_balls is None else num_balls)
 

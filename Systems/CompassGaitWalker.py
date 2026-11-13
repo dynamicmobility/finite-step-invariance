@@ -146,7 +146,7 @@ def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator, N=2
     if set_type == "rbf":
         raise NotImplementedError()
     E0 = Ellipsoid(3)
-    if rng is None:
+    if rng is not None:
         pts_0 = rng.uniform([-0.05, -0.8, -0.1], [0.02, 0.8, 0.1], (N,3))
         E0.fit(pts_0, 2)
 
