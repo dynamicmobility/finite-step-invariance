@@ -93,8 +93,7 @@ def main(args):
         # fit MVEE to W (NOT UNIONED WITH U)
         WU   = np.vstack((W,U))
         VZ   = np.vstack((V,Z))
-        Ei = (Ellipsoid(sys.d) if args.set_type == 'ell'
-                     else RBF(sys.d))
+        Ei = E0
         try:
             Ei.fit(U) # Fits to preimage of returning points
         except np.linalg.LinAlgError:

@@ -131,7 +131,7 @@ def main():
     parser.add_argument("--ellipsoid-log", type=Path,
                         help="Iterative ellipsoid CSV; defaults to the latest timestamp in Data/cgw")
     parser.add_argument("--no-show", action="store_true")
-    parser.add_argument("--n-verify", type=int, default=10000,
+    parser.add_argument("--n-verify", type=int, default=13000,
                         help="Number of samples to verify with, note that the true number of samples may be larger" \
                         "due to rounding of the number of samples.")
     args = parser.parse_args()
@@ -146,7 +146,7 @@ def main():
     mc_x0s_guard = []
     for nt in sliced_normotopes:
         # TODO: Make a sample_interior method in nt
-        mc_x0s_i = nt.sample_boundary(jax.random.PRNGKey(0), ceil(N_VERIFY/len(sliced_normotopes)))
+        mc_x0s_i = nt.sample_boundary(jax.random.PRNGKey(0), int(N_VERIFY/len(sliced_normotopes)))
         mc_x0s_guard.append(mc_x0s_i)
 
     mc_x0s_guard = np.vstack(mc_x0s_guard)

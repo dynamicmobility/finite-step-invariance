@@ -15,6 +15,8 @@ class RBF(ParameterizedSet):
 
     def fit(self, data, num_balls=None):
         """Fit row-wise data, using the current ball count by default."""
+        if num_balls is not None:
+            self.num_nballs = num_balls
         return self.fit_rbf(data, self.num_nballs if num_balls is None else num_balls)
 
     def params(self) -> np.ndarray:

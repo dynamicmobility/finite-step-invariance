@@ -40,7 +40,7 @@ def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator = No
         E0  = RBF(d)
         rng = np.random.default_rng() if rng is None else rng
         pts = rng.uniform(low=-3, high=3, size=(N, d))
-        E0.fit(pts, 1)
+        E0.fit(pts, 3)
     return E0
 
 # def initial_guess_rbf(rng=None):
