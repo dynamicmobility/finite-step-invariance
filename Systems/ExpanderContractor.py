@@ -43,12 +43,12 @@ def initial_guess(set_type: Literal['ell', 'rbf'], rng: np.random.Generator = No
         E0.fit(pts, 3)
     return E0
 
-# def initial_guess_rbf(rng=None):
-#     rng = np.random.default_rng() if rng is None else rng
-#     pts = rng.uniform(low=-2, high=2, size=(100, d))
-#     E0 = RBF(d, np.log(0.25))
-#     E0 = E0.fit_rbf(pts, 1)
-#     return E0
+def initial_guess_rbf(rng=None):
+    rng = np.random.default_rng() if rng is None else rng
+    pts = rng.uniform(low=-2, high=2, size=(100, d))
+    E0 = RBF(d, np.log(0.25))
+    E0 = E0.fit_rbf(pts, 2)
+    return E0
 
 def plot_true(ax, diml=0, dimh=1, **kwargs):
     plot_projection(Q, c.flatten(), 1, ax, diml, dimh, alpha=0.75, color='green', **kwargs)
