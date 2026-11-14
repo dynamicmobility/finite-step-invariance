@@ -8,7 +8,7 @@ from probabilistic_bounds import binomial_tail
 from datetime import datetime
 import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Systems'))
-from Systems import DogBone
+from Systems import ExpanderContractor
 import jax
 import jax.numpy as jnp
 print("Using backend: ", jax.default_backend())
@@ -21,13 +21,13 @@ N        = 2000   # samples per iteration
 MAX_ITER = 200
 PLOT     = False  # Shows the plot every iteration
 RESCALE  = False # Rescale=True doesn't really work because it shrinks the set too fast
-EPS_THRESHOLD = 0.05 # User-defined accuracy threshold for convergence
+EPS_THRESHOLD = 0.06 # User-defined accuracy threshold for convergence
 
 # =========================================================================
 # Model Setup
 # =========================================================================
 
-sys = DogBone
+sys = ExpanderContractor
 
 # =========================================================================
 # RBF log: one block of rows per iteration, rewritten after every fit so a
@@ -70,7 +70,7 @@ Ei = E0
 for iteration in range(MAX_ITER):
 
     # --- Line 6-7: sample N points from E --------------------------------
-    Xi = Ei.sample_from(N)        # (N, d)
+    Xi = Ei.sample_from(N, rng=np.random.default_rng())        # (N, d)
 
     # --- Line 9: apply Poincaré return map --------------------------------
     Xi_prime = sys.P_batch(Xi)             # (N, d)
@@ -100,7 +100,7 @@ for iteration in range(MAX_ITER):
     VZ   = np.vstack((V,Z))
     Ei   = RBF(sys.d, np.log(0.25))
     try:
-        Ei.fit(U, 3)
+        Ei.fit(U, 2)
     except np.linalg.LinAlgError:
         print("W not well-conditioned, resampling")
         continue
@@ -159,7 +159,7 @@ df_rbf = pd.DataFrame(E_star.centers_opt, columns=c_cols)
 df_rbf['width'] = E_star.widths_opt
 df_rbf['thresh'] = E_star.thresh
 df_rbf.index.name = 'ball'
-csv_path = f"{sysname}_rbf_log_{timestamp}_final.csv"
+csv_path = f"Data/cec_rbf/{sysname}_rbf_log_{timestamp}_final.csv"
 df_rbf.to_csv(csv_path)
 print(f"Saved {csv_path}")
 
